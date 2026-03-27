@@ -11,6 +11,7 @@ import type { HADevice, HAEntity, HAArea } from "./types";
 
 let connection: Connection | null = null;
 let entities: HassEntities = {};
+let connectionReady = false;
 
 // Build a createSocket function compatible with the HA JS library
 // The library expects the socket factory to handle auth and return a ready socket
@@ -58,7 +59,8 @@ export async function connectToHA(): Promise<Connection> {
     throw new Error("HA_TOKEN environment variable is required");
   }
 
-  console.log(`Connecting to Home Assistant at ${url}...`);
+  console.log(`[OPENCLAW HA] Connecting to Home Assistant at ${url}...`);
+  console.log(`[OPENCLAW HA] Token present: ${!!token} (length: ${token.length})`);
   const auth = createLongLivedTokenAuth(url, token);
 
   connection = await createConnection({
@@ -67,24 +69,35 @@ export async function connectToHA(): Promise<Connection> {
   });
 
   connection.addEventListener("ready", () => {
-    console.log("HA WebSocket: connected and ready");
+    console.log("[OPENCLAW HA] WebSocket: connected and ready");
   });
 
   connection.addEventListener("disconnected", () => {
-    console.log("HA WebSocket: disconnected (will auto-reconnect)");
+    console.log("[OPENCLAW HA] WebSocket: disconnected (will auto-reconnect)");
   });
 
   connection.addEventListener("reconnect-error", () => {
-    console.log("HA WebSocket: reconnect error");
+    console.error("[OPENCLAW HA] WebSocket: reconnect error");
   });
 
   // Subscribe to entity state changes — keeps `entities` updated in real-time
+  let entityUpdateCount = 0;
   subscribeEntities(connection, (newEntities) => {
+    const count = Object.keys(newEntities).length;
+    entityUpdateCount++;
+    if (entityUpdateCount <= 3 || entityUpdateCount % 50 === 0) {
+      console.log(`[OPENCLAW HA] Entity update #${entityUpdateCount}: ${count} entities`);
+    }
     entities = newEntities;
   });
 
-  console.log("HA WebSocket: authenticated and subscribed to entities");
+  connectionReady = true;
+  console.log("[OPENCLAW HA] WebSocket: authenticated and subscribed to entities");
   return connection;
+}
+
+export function isConnectionReady(): boolean {
+  return connectionReady && connection !== null;
 }
 
 export function getConnection(): Connection {
@@ -127,8 +140,7 @@ export async function reloadConfigEntry(entityId: string): Promise<void> {
   const url = getHAUrl();
   const token = getHAToken();
   try {
-    // Call HA REST API to reload the config entry for this entity
-    await fetch(`${url}/api/services/homeassistant/reload_config_entry`, {
+    const res = await fetch(`${url}/api/services/homeassistant/reload_config_entry`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -136,8 +148,12 @@ export async function reloadConfigEntry(entityId: string): Promise<void> {
       },
       body: JSON.stringify({ entity_id: entityId }),
     });
-  } catch (err) {
-    console.log(`Failed to reload config entry for ${entityId}:`, err);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.log(`[OPENCLAW HA] Config entry reload for ${entityId} returned ${res.status}: ${text.slice(0, 200)}`);
+    }
+  } catch (err: any) {
+    console.log(`[OPENCLAW HA] Failed to reload config entry for ${entityId}: ${err.message}`);
   }
 }
 
@@ -146,5 +162,9 @@ export function getHAUrl(): string {
 }
 
 export function getHAToken(): string {
-  return process.env.HA_TOKEN || "";
+  const token = process.env.HA_TOKEN;
+  if (!token) {
+    throw new Error("HA_TOKEN environment variable is not set. Cannot make authenticated requests to Home Assistant.");
+  }
+  return token;
 }
