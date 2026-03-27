@@ -4,6 +4,7 @@ import { deviceRoutes } from "./routes/devices";
 import { areaRoutes } from "./routes/areas";
 import { serviceRoutes } from "./routes/services";
 import { cameraRoutes } from "./routes/camera";
+import { chatRoutes } from "./routes/chat";
 
 const app = new Elysia()
   .get("/api/health", () => ({ status: "ok" }))
@@ -11,6 +12,7 @@ const app = new Elysia()
   .use(areaRoutes)
   .use(serviceRoutes)
   .use(cameraRoutes)
+  .use(chatRoutes)
   .listen(Number(process.env.API_PORT) || 3001);
 
 console.log(`API running on port ${app.server?.port}`);
