@@ -30,3 +30,57 @@ export async function callService(
 export function cameraSnapshotUrl(entityId: string): string {
   return `${API_BASE}/camera/${entityId}/snapshot?t=${Date.now()}`;
 }
+
+export async function sendChatMessage(
+  message: string,
+  onText: (text: string) => void,
+  onDone: () => void,
+  onError: (error: string) => void
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Request failed" }));
+    onError(body.error || `Chat request failed: ${res.status}`);
+    return;
+  }
+
+  if (!res.body) {
+    onError("No response body");
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6).trim();
+      if (data === "[DONE]") {
+        onDone();
+        return;
+      }
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta?.content;
+        if (delta) onText(delta);
+      } catch {
+        // Skip malformed events
+      }
+    }
+  }
+  onDone();
+}

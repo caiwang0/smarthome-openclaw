@@ -39,3 +39,12 @@ export interface DevicesResponse {
 export interface AreasResponse {
   areas: Area[];
 }
+
+// ---- Chat Types ----
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  isStreaming?: boolean;
+}
