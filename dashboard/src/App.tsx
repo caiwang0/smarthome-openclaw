@@ -4,6 +4,7 @@ import { useAreas } from "./hooks/useAreas";
 import AreaFilter from "./components/AreaFilter";
 import DeviceGrid from "./components/DeviceGrid";
 import NotificationToast from "./components/NotificationToast";
+import ChatPanel from "./components/ChatPanel";
 
 function HomeIcon() {
   return (
@@ -26,6 +27,17 @@ export default function App() {
   const { devices, newDeviceNames, loading, error } = useDevices();
   const { areas } = useAreas();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState<boolean>(() => {
+    return localStorage.getItem("openclaw_chat_open") === "true";
+  });
+
+  function toggleChat() {
+    setChatOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem("openclaw_chat_open", String(next));
+      return next;
+    });
+  }
 
   const unassignedCount = devices.filter((d) => !d.area_id).length;
 
@@ -63,7 +75,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#2C2520] font-sans">
+    <div className="min-h-screen bg-[#FAF8F5] text-[#2C2520] font-sans flex">
+      <div className={`flex-1 min-w-0 ${chatOpen ? "mr-[360px]" : ""}`}>
       <NotificationToast deviceNames={newDeviceNames} />
 
       {/* ── Header (sticky — title row + filter pills stay pinned while scrolling) ── */}
@@ -80,6 +93,16 @@ export default function App() {
                 <p className="text-sm leading-tight mt-0.5">{getSubtitle()}</p>
               </div>
             </div>
+            <button
+              onClick={toggleChat}
+              className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border rounded transition-colors ${
+                chatOpen
+                  ? "bg-[#E8913A] text-white border-[#E8913A]"
+                  : "bg-transparent text-[#8C7E72] border-[#E8E2D9] hover:border-[#E8913A] hover:text-[#E8913A]"
+              }`}
+            >
+              {chatOpen ? "Close Chat" : "OpenClaw"}
+            </button>
           </div>
 
           {/* Area filter pills — pinned with header so room switching is always accessible */}
@@ -109,6 +132,13 @@ export default function App() {
           selectedArea={selectedArea}
         />
       </main>
+      </div>
+
+      {chatOpen && (
+        <div className="fixed top-0 right-0 w-[360px] h-screen z-50">
+          <ChatPanel />
+        </div>
+      )}
     </div>
   );
 }
