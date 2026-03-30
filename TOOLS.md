@@ -1,86 +1,26 @@
-# TOOLS.md - Smart Home Setup
+# TOOLS.md — Smart Home Skill Router
 
-## SmartHub API (convenience layer)
+This file is the entry point for all device and service knowledge. Detailed commands, capabilities, and quirks live in the `tools/` folder.
 
-The SmartHub API runs at `http://localhost:3099` and wraps Home Assistant.
+## Quick Reference
 
-### List all devices
-```bash
-curl -s http://localhost:3099/api/devices | jq '.devices[] | {name, device_type, status, area_name, primary_entity}'
-```
+| Skill File | What It Covers |
+|------------|----------------|
+| [tools/_common.md](tools/_common.md) | SmartHub API, HA Direct API, auth tokens, network info |
+| [tools/xiaomi-home/_integration.md](tools/xiaomi-home/_integration.md) | Xiaomi Home setup, OAuth, cloud regions, shared quirks |
+| [tools/xiaomi-home/tv.md](tools/xiaomi-home/tv.md) | Xiaomi TV commands and quirks |
+| [tools/printer/office-printer.md](tools/printer/office-printer.md) | Office printer setup and print commands |
+| [tools/automations/_guide.md](tools/automations/_guide.md) | **Automation creation** — HA API, trigger types, templates, per-domain reference |
 
-### Get a specific device
-```bash
-curl -s http://localhost:3099/api/devices/<device_id>
-```
+**Before controlling a device**, read its skill file for the correct entity ID, commands, and known quirks.
 
-### Control a device (call a service)
-```bash
-curl -s -X POST http://localhost:3099/api/services/<domain>/<service> \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<entity_id>"}'
-```
+**For general API patterns** (listing devices, calling services, managing areas), read `tools/_common.md`.
 
-Common services:
-- `light/turn_on` — turn on a light (optional: `"brightness": 0-255`)
-- `light/turn_off` — turn off a light
-- `switch/turn_on` / `switch/turn_off` — toggle a switch
-- `climate/set_temperature` — set thermostat (data: `"temperature": 24`)
-- `climate/set_hvac_mode` — set mode (data: `"hvac_mode": "cool"`)
-- `media_player/turn_off` — turn off media player
-- `media_player/volume_up` / `media_player/volume_down`
-- `media_player/media_play` / `media_player/media_pause`
-
-### List areas/rooms
-```bash
-curl -s http://localhost:3099/api/areas | jq '.areas'
-```
+**For creating automations**, read `tools/automations/_guide.md` — it has the full workflow, JSON schema, and templates.
 
 ---
 
-## Home Assistant Direct API (for operations not in SmartHub)
-
-When the SmartHub API doesn't expose an endpoint you need, call HA directly at `http://localhost:8123`.
-
-**Authentication header (required for all HA calls):**
-```bash
-HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMDYzMDM3YzZiMTI0MGYyOTM2MmZmNGI1ZDA2ZDE1ZCIsImlhdCI6MTc3NDUxMTEwNiwiZXhwIjoyMDg5ODcxMTA2fQ.MMWtEXXmGNE5p_mqdn-RfLD-6j77ntZgc7r9hAvENjo"
-```
-
-### Device registry — move device to area
-```bash
-curl -s -X POST http://localhost:8123/api/config/device_registry \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"device_id": "<device_id>", "area_id": "<area_id>"}'
-```
-
-### Area registry — create/list/delete areas
-```bash
-# List areas
-curl -s http://localhost:8123/api/config/area_registry/list \
-  -H "Authorization: Bearer $HA_TOKEN"
-
-# Create area
-curl -s -X POST http://localhost:8123/api/config/area_registry/create \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Office"}'
-
-# Delete area
-curl -s -X POST http://localhost:8123/api/config/area_registry/delete \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"area_id": "<area_id>"}'
-```
-
-### Config entries — list installed integrations
-```bash
-curl -s http://localhost:8123/api/config/config_entries/entry \
-  -H "Authorization: Bearer $HA_TOKEN" | jq '.[] | {domain, title, state}'
-```
-
-### Config flows — add new integrations
+## Adding New Integrations (Config Flows)
 
 **When a user wants to add an integration, ALWAYS start your response with both options:**
 
@@ -96,6 +36,8 @@ Every integration has different steps and options. NEVER hardcode or assume valu
 
 **Step 1: Start a config flow**
 ```bash
+HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMDYzMDM3YzZiMTI0MGYyOTM2MmZmNGI1ZDA2ZDE1ZCIsImlhdCI6MTc3NDUxMTEwNiwiZXhwIjoyMDg5ODcxMTA2fQ.MMWtEXXmGNE5p_mqdn-RfLD-6j77ntZgc7r9hAvENjo"
+
 curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
   -H "Authorization: Bearer $HA_TOKEN" \
   -H "Content-Type: application/json" \
@@ -109,7 +51,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
 | `form` | Read `data_schema`, present ALL fields to user, ask for their choices, then submit |
 | `external` / `progress` | Extract OAuth URL, send to user as clickable link, wait for them to confirm |
 | `abort` | Tell user the reason. If `already_in_progress`, offer to clear stale flows |
-| `create_entry` | Done! Show what devices were added |
+| `create_entry` | Done! Run the post-integration skill generation (see below), then show what devices were added |
 
 **For `form` steps — present every field:**
 - `select` → show all options as a numbered list, ask user to pick
@@ -141,55 +83,61 @@ curl -s -X DELETE http://localhost:8123/api/config/config_entries/flow/<flow_id>
   -H "Authorization: Bearer $HA_TOKEN"
 ```
 
-### Config entries — remove an integration
-```bash
-curl -s -X DELETE http://localhost:8123/api/config/config_entries/entry/<entry_id> \
-  -H "Authorization: Bearer $HA_TOKEN"
-```
-
-### Config entries — reload an integration
-```bash
-curl -s -X POST http://localhost:8123/api/config/config_entries/entry/<entry_id>/reload \
-  -H "Authorization: Bearer $HA_TOKEN"
-```
-
 ---
 
-## Known Devices
+## Skill Auto-Generation
 
-| Name | Device ID | Type |
-|------|-----------|------|
-| 小米 Xiaomi TV | `edgenesis-tv` | `xiaomi.tv.v1` |
+You maintain the `tools/` folder automatically. Follow these rules:
 
-## Known Issues
-- Xiaomi TV (DLNA) frequently shows as "unavailable" but still accepts commands. Try the command anyway.
-- TV cannot be powered on via network when in standby (Wi-Fi disconnects). Requires IR blaster (Phase 3).
-- OAuth integrations (Xiaomi Home) require the user to open a URL in their browser — you cannot complete the browser login yourself. The redirect URI uses `homeassistant.local` which resolves via mDNS. If the user's device can't resolve it, guide them to add a hosts entry for `192.168.2.97 homeassistant.local`. **Never modify the OAuth URL itself — Xiaomi rejects mismatched redirect URIs.**
-- The Bluetooth integration is in `setup_retry` state — the Pi's Bluetooth hardware may need a power cycle.
+### After a new integration completes (`create_entry`)
 
-## Printing
+1. Query `curl -s http://localhost:3099/api/devices` to discover new devices
+2. Determine the integration domain (e.g., `xiaomi_home`, `hue`, `broadlink`)
+3. If `tools/<integration>/` doesn't exist, create it
+4. If `tools/<integration>/_integration.md` doesn't exist, create it with:
+   - Integration name and domain
+   - Setup notes (OAuth? Local? Cloud region?)
+   - Any shared quirks discovered during setup
+   - A Devices table listing all devices in this integration
+5. For each new device, create `tools/<integration>/<device-name>.md` with:
+   - Device info (name, device ID, type, model, primary entity ID)
+   - Commands section with curl examples for all applicable services based on the device's domain (use the patterns from `tools/_common.md`)
+   - An empty Quirks section
+6. Update the Quick Reference table at the top of this file (TOOLS.md) with the new skill files
+7. Update the Devices table in `_integration.md`
 
-**Printer:** Network printer at `ipp://192.168.2.75:631/ipp/print` (90% toner)
+### After running a novel command on a device
 
-**Setup (one-time):** CUPS must be installed and the printer added before printing works.
-```bash
-sudo apt-get install -y cups
-sudo lpadmin -p office-printer -E -v ipp://192.168.2.75:631/ipp/print -m everywhere
-sudo lpoptions -d office-printer
+If you execute a command pattern that is NOT already documented in the device's skill file:
+1. Read the device's skill file
+2. Append the new command under the appropriate section (or create a new section)
+3. If you encountered unexpected behavior, add it to the Quirks section
+
+### After discovering a quirk
+
+If a device behaves unexpectedly (e.g., returns "unavailable" but still responds, requires a specific parameter format, has a timing constraint):
+1. Add the quirk to the device's skill file under `## Quirks`
+2. If the quirk affects all devices in the integration, also add it to `_integration.md` under `## Shared Quirks`
+
+### Skill file template for new devices
+
+```markdown
+# <Device Name>
+
+## Device Info
+
+- **Name:** <name>
+- **Device ID:** `<device_id>`
+- **Type:** `<domain>` (<sub-type if relevant>)
+- **Model:** `<model>`
+- **Integration:** <Integration Name> (`<domain>`)
+- **Primary Entity:** `<entity_id>`
+
+## Commands
+
+<curl examples for each applicable service>
+
+## Quirks
+
+- None known yet.
 ```
-
-**Printing a file:** When the user uploads a file and says "print this":
-1. Save the uploaded file to `/tmp/`
-2. Run: `lp -d office-printer /tmp/<filename>`
-3. Confirm the print job was sent
-
-If CUPS isn't running: `sudo systemctl start cups`
-
-If the printer isn't added yet, run the setup commands above first.
-
----
-
-## Network Info
-- Home Assistant: `http://192.168.2.97:8123` (also `http://localhost:8123` from this machine)
-- SmartHub API: `http://localhost:3099`
-- `homeassistant.local` does NOT resolve on most LAN devices. Always use `192.168.2.97` when giving URLs to the user.

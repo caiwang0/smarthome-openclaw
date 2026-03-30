@@ -1,0 +1,12 @@
+{
+  "workflow_id": "rdw-1743321600",
+  "started": "2026-03-30T14:00:00Z",
+  "current_stage": "complete",
+  "artifacts": { "issue_doc": null, "plan_doc": null, "validation_report": null },
+  "stages_completed": ["document"],
+  "phases": { "total": null, "completed": [], "current": null, "failed": [] },
+  "review_log": [],
+  "tier": 1,
+  "discoveries": [],
+  "learnings_captured": []
+}

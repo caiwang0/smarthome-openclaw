@@ -26,12 +26,3 @@ services:
     depends_on:
       - homeassistant
 
-  dashboard:
-    container_name: smarthub-dashboard
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    network_mode: host
-    depends_on:
-      - api
