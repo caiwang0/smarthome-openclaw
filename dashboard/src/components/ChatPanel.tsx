@@ -4,6 +4,16 @@ import { sendChatMessage } from "../api";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 
+function uuid() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    try { return crypto.randomUUID(); } catch {}
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 const WELCOME_MESSAGE: ChatMessageType = {
   id: "welcome",
   role: "assistant",
@@ -18,19 +28,29 @@ export default function ChatPanel() {
   const [messages, setMessages] = useState<ChatMessageType[]>([WELCOME_MESSAGE]);
   const [streaming, setStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  function stopStreaming() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStreaming(false);
+    setMessages((prev) =>
+      prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m))
+    );
+  }
+
   const handleSend = useCallback(async (text: string) => {
     const userMsg: ChatMessageType = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       role: "user",
       content: text,
     };
 
-    const assistantId = crypto.randomUUID();
+    const assistantId = uuid();
     const assistantMsg: ChatMessageType = {
       id: assistantId,
       role: "assistant",
@@ -40,6 +60,9 @@ export default function ChatPanel() {
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setStreaming(true);
+
+    const abort = new AbortController();
+    abortRef.current = abort;
 
     function updateAssistant(updater: (msg: ChatMessageType) => ChatMessageType) {
       setMessages((prev) =>
@@ -64,15 +87,19 @@ export default function ChatPanel() {
             isStreaming: false,
           }));
           setStreaming(false);
-        }
+        },
+        abort.signal
       );
-    } catch {
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
       updateAssistant((m) => ({
         ...m,
         content: m.content || "Connection failed. Is the API running?",
         isStreaming: false,
       }));
+    } finally {
       setStreaming(false);
+      abortRef.current = null;
     }
   }, []);
 
@@ -96,7 +123,11 @@ export default function ChatPanel() {
         <div ref={messagesEndRef} />
       </div>
 
-      <ChatInput onSend={handleSend} disabled={streaming} />
+      <ChatInput
+        onSend={handleSend}
+        onStop={streaming ? stopStreaming : undefined}
+        disabled={streaming}
+      />
     </div>
   );
 }
