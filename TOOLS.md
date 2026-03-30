@@ -24,7 +24,7 @@ This file is the entry point for all device and service knowledge. Detailed comm
 
 **When a user wants to add an integration, ALWAYS start your response with both options:**
 
-> **Option 1 — Do it yourself in the HA UI:** [Open HA Integrations](http://192.168.2.97:8123/config/integrations/dashboard) → click "Add Integration" → search for [integration name]. Let me know when you're done and I'll check what devices were added.
+> **Option 1 — Do it yourself in the HA UI:** [Open HA Integrations](http://localhost:8123/config/integrations/dashboard) → click "Add Integration" → search for [integration name]. Let me know when you're done and I'll check what devices were added.
 >
 > **Option 2 — I'll guide you step by step.** Here's the first step:
 
@@ -36,7 +36,7 @@ Every integration has different steps and options. NEVER hardcode or assume valu
 
 **Step 1: Start a config flow**
 ```bash
-HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMDYzMDM3YzZiMTI0MGYyOTM2MmZmNGI1ZDA2ZDE1ZCIsImlhdCI6MTc3NDUxMTEwNiwiZXhwIjoyMDg5ODcxMTA2fQ.MMWtEXXmGNE5p_mqdn-RfLD-6j77ntZgc7r9hAvENjo"
+HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
 
 curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
   -H "Authorization: Bearer $HA_TOKEN" \
@@ -64,7 +64,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
 - Extract the raw URL from the response (may be in `description_placeholders` as an HTML `<a href="...">` tag — extract the `href` value)
 - **Send the raw URL on its own line** so Discord auto-links it. Do NOT use markdown `[text](url)` format — Discord doesn't render those as clickable in bot messages. Just paste the URL directly.
 - Tell user: "Click the link, log in, authorize, and let me know when done."
-- If `homeassistant.local` doesn't load, tell them to add a hosts entry: `192.168.2.97 homeassistant.local`
+- If `homeassistant.local` doesn't load, tell them to add a hosts entry: `the Pi's IP address homeassistant.local`
 - After user confirms, poll the flow to check if it advanced
 
 **Step 3: Submit user's choices**
@@ -91,7 +91,7 @@ You maintain the `tools/` folder automatically. Follow these rules:
 
 ### After a new integration completes (`create_entry`)
 
-1. Query `curl -s http://localhost:3099/api/devices` to discover new devices
+1. Query `curl -s http://localhost:3001/api/devices` to discover new devices
 2. Determine the integration domain (e.g., `xiaomi_home`, `hue`, `broadlink`)
 3. If `tools/<integration>/` doesn't exist, create it
 4. If `tools/<integration>/_integration.md` doesn't exist, create it with:

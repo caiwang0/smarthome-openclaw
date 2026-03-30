@@ -13,7 +13,7 @@
 
 ### Set HVAC mode / temperature
 ```bash
-HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMDYzMDM3YzZiMTI0MGYyOTM2MmZmNGI1ZDA2ZDE1ZCIsImlhdCI6MTc3NDUxMTEwNiwiZXhwIjoyMDg5ODcxMTA2fQ.MMWtEXXmGNE5p_mqdn-RfLD-6j77ntZgc7r9hAvENjo"
+HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
 
 # Turn on
 curl -s -X POST http://localhost:8123/api/services/climate/turn_on \

@@ -64,7 +64,7 @@ You need a bot token so OpenClaw can send/receive messages.
 Once OpenClaw is running, it will ask you for the repo URL. You can use this one:
 
 ```
-https://github.com/edgenesis/smarthub
+https://github.com/caiwang0/smarthome-openclaw
 ```
 
 Or if you've forked it, send OpenClaw your fork URL and it will clone it for you.
@@ -183,12 +183,15 @@ OpenClaw will walk you through everything else:
 
 ```
 You:      Help me set up SmartHub
-OpenClaw: Let's get your smart home running. First, do you have Docker installed?
-          Run: docker --version
+OpenClaw: Let's get your smart home running. First, send me your SmartHub repo URL
+          (or I can use the default: https://github.com/caiwang0/smarthome-openclaw)
+
+You:      Just use the default
+OpenClaw: Got it. Do you have Docker installed? Run: docker --version
 
 You:      Docker version 27.5.1
-OpenClaw: Docker is ready. Let me start Home Assistant...
-          Running: docker compose up -d
+OpenClaw: Docker is ready. Let me clone the repo and start Home Assistant...
+          Running: git clone https://github.com/caiwang0/smarthome-openclaw && cd smarthome-openclaw && docker compose up -d
           ...
           HA is starting up. Open http://localhost:8123 in your browser.
           You'll see the onboarding wizard — create your admin account

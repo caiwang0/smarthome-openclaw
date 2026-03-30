@@ -2,21 +2,21 @@
 
 ## SmartHub API (convenience layer)
 
-Base URL: `http://localhost:3099`
+Base URL: `http://localhost:3001`
 
 ### List all devices
 ```bash
-curl -s http://localhost:3099/api/devices | jq '.devices[] | {name, device_type, status, area_name, primary_entity}'
+curl -s http://localhost:3001/api/devices | jq '.devices[] | {name, device_type, status, area_name, primary_entity}'
 ```
 
 ### Get a specific device
 ```bash
-curl -s http://localhost:3099/api/devices/<device_id>
+curl -s http://localhost:3001/api/devices/<device_id>
 ```
 
 ### Control a device (call a service)
 ```bash
-curl -s -X POST http://localhost:3099/api/services/<domain>/<service> \
+curl -s -X POST http://localhost:3001/api/services/<domain>/<service> \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>"}'
 ```
@@ -33,7 +33,7 @@ Common services:
 
 ### List areas/rooms
 ```bash
-curl -s http://localhost:3099/api/areas | jq '.areas'
+curl -s http://localhost:3001/api/areas | jq '.areas'
 ```
 
 ---
@@ -44,7 +44,7 @@ Base URL: `http://localhost:8123`
 
 **Authentication header (required for all HA calls):**
 ```bash
-HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMDYzMDM3YzZiMTI0MGYyOTM2MmZmNGI1ZDA2ZDE1ZCIsImlhdCI6MTc3NDUxMTEwNiwiZXhwIjoyMDg5ODcxMTA2fQ.MMWtEXXmGNE5p_mqdn-RfLD-6j77ntZgc7r9hAvENjo"
+HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
 ```
 
 ### Device registry — move device to area
@@ -96,6 +96,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/entry/<entry_id>
 
 ## Network Info
 
-- Home Assistant: `http://192.168.2.97:8123` (also `http://localhost:8123` from this machine)
-- SmartHub API: `http://localhost:3099`
-- `homeassistant.local` does NOT resolve on most LAN devices. Always use `192.168.2.97` when giving URLs to the user.
+- Home Assistant: `http://localhost:8123`
+- SmartHub API: `http://localhost:3001`
+- For browser access from other devices on the LAN, use the Pi's IP address (run `hostname -I | awk '{print $1}'` to find it)
+- `homeassistant.local` does NOT resolve on most LAN devices. Use the Pi's IP instead when giving URLs to the user.

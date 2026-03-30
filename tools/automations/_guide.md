@@ -20,7 +20,7 @@ When a user asks for an automation (e.g., "turn off lights at midnight"), follow
 
 **Authentication for all calls:**
 ```bash
-HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMDYzMDM3YzZiMTI0MGYyOTM2MmZmNGI1ZDA2ZDE1ZCIsImlhdCI6MTc3NDUxMTEwNiwiZXhwIjoyMDg5ODcxMTA2fQ.MMWtEXXmGNE5p_mqdn-RfLD-6j77ntZgc7r9hAvENjo"
+HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
 ```
 
 ### Create an automation
