@@ -74,13 +74,17 @@ Every integration has its own setup flow with different steps and options. **Do 
 
 When a user wants to add an integration, ALWAYS present both:
 
-**ALWAYS start your response with both options at once:**
+**ALWAYS start your response with both options at once.** First, get the Pi's IP with `hostname -I | awk '{print $1}'`, then present:
 
-> **Option 1 — Do it yourself:** [Open HA Integrations](http://localhost:8123/config/integrations/dashboard) → click "Add Integration" → search for [name]. Let me know when done.
+> **Option 1 — Do it yourself:** Open this link in your browser:
+> http://<PI_IP>:8123/config/integrations/dashboard
+> Click "Add Integration" → search for [name]. Let me know when done.
 >
-> **Option 2 — Guided setup.** Here's the first step:
+> **Option 2 — I'll guide you through it.** Here's the first step:
 
 Then immediately show the first form step below. The user sees both options and can pick either without extra back-and-forth. If they use the HA UI, just wait and check `/api/devices` when they're done.
+
+**Important:** For Option 1, send the URL as a bare link on its own line — do NOT use markdown `[text](url)` format. Bare URLs auto-link correctly on all platforms. Markdown links often break with long URLs.
 
 ### Guided Setup Process
 
@@ -155,9 +159,9 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
 **5. If a step has an OAuth URL** (common for Xiaomi, Google, etc.)
 - The URL is usually in `description_placeholders.link_left` or similar, wrapped in an HTML `<a>` tag
 - Extract the raw URL from the `href="..."` attribute
-- **Send the raw URL on its own line** — do NOT wrap it in markdown `[text](url)` format because Discord won't render those as clickable. Just paste the bare URL so it auto-links.
-- Tell the user: "Open this link and log in. Let me know when you're done."
-- Show the OAuth link and tell the user to open it and log in
+- **Send the URL as a bare link on its own line** — do NOT use markdown `[text](url)` format. Long OAuth URLs break when partially hyperlinked. Just paste the raw URL on its own line so it auto-links correctly.
+- Before the URL, add a short label like: "Click this link to log in with your Xiaomi account:"
+- Tell the user: "After logging in, the page will redirect back automatically. Let me know when you're done."
 - **If the OAuth redirect fails** (user says the page didn't load, or the flow doesn't advance), it means `homeassistant.local` isn't resolving to the Pi. Detect the Pi's IP with `hostname -I | awk '{print $1}'` and give the user the exact hosts file command with the IP already filled in:
   - **Windows**: Search `cmd` in Start menu, right-click Command Prompt, click "Run as administrator", then paste: `echo <PI_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
   - **Mac/Linux**: `echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts`
