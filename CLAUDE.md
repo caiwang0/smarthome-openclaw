@@ -15,7 +15,7 @@ grep -q 'HA_TOKEN=.' .env 2>/dev/null && echo "ENV_OK" || echo "ENV_MISSING"
 curl -s --max-time 5 http://localhost:8123/api/ 2>/dev/null | grep -q "API running" && echo "HA_OK" || echo "HA_DOWN"
 
 # 3. Is the SmartHub API reachable?
-curl -s --max-time 5 http://localhost:3001/api/health 2>/dev/null | grep -q "ok" && echo "API_OK" || echo "API_DOWN"
+API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s --max-time 5 http://localhost:${API_PORT}/api/health 2>/dev/null | grep -q "ok" && echo "API_OK" || echo "API_DOWN"
 ```
 
 **If ANY check fails**, the system is not fully set up. You MUST read `tools/setup.md` and follow it step by step. Do NOT improvise or ask your own questions — the setup skill has the exact flow. Skip steps that are already passing (e.g., if HA is running, skip the Docker step) but follow the skill for everything else.
@@ -164,7 +164,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
 
 **7. After completion, verify**
 ```bash
-curl -s http://localhost:3001/api/devices
+API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s http://localhost:${API_PORT}/api/devices
 ```
 Show the user what new devices were found.
 

@@ -1,22 +1,28 @@
 # Common — Shared API & Network Reference
 
+> **Before running any command below**, read the API port from `.env`:
+> ```bash
+> API_PORT=$(grep API_PORT .env | cut -d= -f2)
+> ```
+> All curl examples below use `${API_PORT}`. Never hardcode port 3001 — it may differ per installation.
+
 ## SmartHub API (convenience layer)
 
-Base URL: `http://localhost:3001`
+Base URL: `http://localhost:${API_PORT}`
 
 ### List all devices
 ```bash
-curl -s http://localhost:3001/api/devices | jq '.devices[] | {name, device_type, status, area_name, primary_entity}'
+curl -s http://localhost:${API_PORT}/api/devices | jq '.devices[] | {name, device_type, status, area_name, primary_entity}'
 ```
 
 ### Get a specific device
 ```bash
-curl -s http://localhost:3001/api/devices/<device_id>
+curl -s http://localhost:${API_PORT}/api/devices/<device_id>
 ```
 
 ### Control a device (call a service)
 ```bash
-curl -s -X POST http://localhost:3001/api/services/<domain>/<service> \
+curl -s -X POST http://localhost:${API_PORT}/api/services/<domain>/<service> \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>"}'
 ```
@@ -33,7 +39,7 @@ Common services:
 
 ### List areas/rooms
 ```bash
-curl -s http://localhost:3001/api/areas | jq '.areas'
+curl -s http://localhost:${API_PORT}/api/areas | jq '.areas'
 ```
 
 ---
@@ -97,6 +103,6 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/entry/<entry_id>
 ## Network Info
 
 - Home Assistant: `http://localhost:8123`
-- SmartHub API: `http://localhost:3001`
+- SmartHub API: `http://localhost:${API_PORT}` (read `API_PORT` from `.env`; default 3001)
 - For browser access from other devices on the LAN, use the Pi's IP address (run `hostname -I | awk '{print $1}'` to find it)
 - `homeassistant.local` does NOT resolve on most LAN devices. Use the Pi's IP instead when giving URLs to the user.

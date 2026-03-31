@@ -14,7 +14,7 @@
 ### Power
 ```bash
 # Turn off (standby)
-curl -s -X POST http://localhost:3001/api/services/media_player/turn_off \
+curl -s -X POST http://localhost:${API_PORT}/api/services/media_player/turn_off \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>"}'
 ```
@@ -22,22 +22,22 @@ curl -s -X POST http://localhost:3001/api/services/media_player/turn_off \
 ### Volume
 ```bash
 # Volume up
-curl -s -X POST http://localhost:3001/api/services/media_player/volume_up \
+curl -s -X POST http://localhost:${API_PORT}/api/services/media_player/volume_up \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>"}'
 
 # Volume down
-curl -s -X POST http://localhost:3001/api/services/media_player/volume_down \
+curl -s -X POST http://localhost:${API_PORT}/api/services/media_player/volume_down \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>"}'
 
 # Set volume (0.0 to 1.0)
-curl -s -X POST http://localhost:3001/api/services/media_player/volume_set \
+curl -s -X POST http://localhost:${API_PORT}/api/services/media_player/volume_set \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>", "volume_level": 0.5}'
 
 # Mute/unmute
-curl -s -X POST http://localhost:3001/api/services/media_player/volume_mute \
+curl -s -X POST http://localhost:${API_PORT}/api/services/media_player/volume_mute \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>", "is_volume_muted": true}'
 ```
@@ -45,12 +45,12 @@ curl -s -X POST http://localhost:3001/api/services/media_player/volume_mute \
 ### Playback
 ```bash
 # Play
-curl -s -X POST http://localhost:3001/api/services/media_player/media_play \
+curl -s -X POST http://localhost:${API_PORT}/api/services/media_player/media_play \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>"}'
 
 # Pause
-curl -s -X POST http://localhost:3001/api/services/media_player/media_pause \
+curl -s -X POST http://localhost:${API_PORT}/api/services/media_player/media_pause \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "<entity_id>"}'
 ```

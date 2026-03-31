@@ -71,6 +71,42 @@ The token will be filled in later (Step 6). For now, `.env` just needs to exist 
 
 ---
 
+## Step 3b: Check for Port Conflicts
+
+Before starting Docker, check if the required ports are already in use:
+
+```bash
+# Check port 8123 (Home Assistant)
+ss -tlnp | grep ':8123 ' && echo "PORT_8123_CONFLICT" || echo "PORT_8123_FREE"
+
+# Check the API port from .env (default 3001)
+API_PORT=$(grep API_PORT .env | cut -d= -f2)
+API_PORT=${API_PORT:-3001}
+ss -tlnp | grep ":${API_PORT} " && echo "PORT_${API_PORT}_CONFLICT" || echo "PORT_${API_PORT}_FREE"
+```
+
+**If port 8123 is in use:**
+- Tell the user: "Port 8123 is already in use by another service. You'll need to stop it first."
+- Help them identify what's using it: `ss -tlnp | grep ':8123 '`
+- Do NOT proceed until 8123 is free — HA requires this port.
+
+**If the API port is in use:**
+- Pick the next available port automatically:
+```bash
+# Find a free port starting from 3001
+for port in 3001 3002 3099 3100 3200; do
+  ss -tlnp | grep -q ":${port} " || { echo "$port"; break; }
+done
+```
+- Update `.env` with the free port:
+```bash
+sed -i "s|API_PORT=.*|API_PORT=<free_port>|" .env
+```
+- Tell the user: "Port <original> was in use, so I've set the API to run on port <free_port> instead."
+- **Important:** If you assigned a non-default port, update all functional skill files that reference the API port. Run `grep -rn 'localhost:3001' tools/ CLAUDE.md TOOLS.md` and replace any remaining `localhost:3001` with `localhost:${API_PORT}` using the port you just assigned.
+
+---
+
 ## Step 4: Start Home Assistant
 
 ```bash
@@ -98,10 +134,16 @@ done
 
 ## Step 5: HA Onboarding (User Does This in Browser)
 
-Tell the user:
+First, get the Pi's IP address so the user can open HA in their browser:
+
+```bash
+hostname -I | awk '{print $1}'
+```
+
+Tell the user, using the IP you just obtained:
 
 > Home Assistant is running! Open this in your browser:
-> **http://localhost:8123**
+> **http://<PI_IP>:8123**
 >
 > You'll see the onboarding wizard. Follow these steps:
 > 1. **Create your admin account** — pick a name, username, and password
@@ -123,11 +165,12 @@ Tell the user:
 > Now I need an access token so I can control your devices. In your browser:
 >
 > 1. Click your **user initial** (bottom-left corner of the HA dashboard)
-> 2. Scroll down to **Long-Lived Access Tokens**
-> 3. Click **Create Token**
-> 4. Name it **openclaw**
-> 5. **Copy the token** — it only shows once!
-> 6. **Paste it here** in the chat
+> 2. Click the **Security** tab
+> 3. Scroll all the way down to **Long-Lived Access Tokens**
+> 4. Click **Create Token**
+> 5. Name it **openclaw**
+> 6. **Copy the token** — it only shows once!
+> 7. **Paste it here** in the chat
 
 Wait for the user to paste the token. It will look like: `eyJhbGciOiJIUzI1NiIs...`
 
@@ -157,7 +200,8 @@ docker compose restart api
 Wait a few seconds, then verify:
 
 ```bash
-curl -s http://localhost:3001/api/health
+API_PORT=$(grep API_PORT .env | cut -d= -f2)
+curl -s http://localhost:${API_PORT}/api/health
 ```
 
 Should return `{"status":"ok","ha_connected":true}`.
@@ -169,7 +213,8 @@ Should return `{"status":"ok","ha_connected":true}`.
 Test that the full pipeline works:
 
 ```bash
-curl -s http://localhost:3001/api/devices
+API_PORT=$(grep API_PORT .env | cut -d= -f2)
+curl -s http://localhost:${API_PORT}/api/devices
 ```
 
 Tell the user what you find:

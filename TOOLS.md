@@ -91,7 +91,7 @@ You maintain the `tools/` folder automatically. Follow these rules:
 
 ### After a new integration completes (`create_entry`)
 
-1. Query `curl -s http://localhost:3001/api/devices` to discover new devices
+1. Query `API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s http://localhost:${API_PORT}/api/devices` to discover new devices
 2. Determine the integration domain (e.g., `xiaomi_home`, `hue`, `broadlink`)
 3. If `tools/<integration>/` doesn't exist, create it
 4. If `tools/<integration>/_integration.md` doesn't exist, create it with:
@@ -135,7 +135,9 @@ If a device behaves unexpectedly (e.g., returns "unavailable" but still responds
 
 ## Commands
 
-<curl examples for each applicable service>
+> Read the API port first: `API_PORT=$(grep API_PORT .env | cut -d= -f2)`
+
+<curl examples using http://localhost:${API_PORT}/api/services/...>
 
 ## Quirks
 
