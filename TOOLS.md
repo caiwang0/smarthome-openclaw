@@ -22,7 +22,9 @@ This file is the entry point for all device and service knowledge. Detailed comm
 
 ## Adding New Integrations (Config Flows)
 
-**When a user wants to add an integration, ALWAYS start your response with both options:**
+**Step 0 — ALWAYS check if the integration exists first.** See CLAUDE.md "Step 0 — Check if the integration is available" for the full process. If the integration is not installed (e.g., `xiaomi_home` needs HACS), handle HACS installation first before proceeding.
+
+**Then offer BOTH options:**
 
 > **Option 1 — Do it yourself in the HA UI:** [Open HA Integrations](http://localhost:8123/config/integrations/dashboard) → click "Add Integration" → search for [integration name]. Let me know when you're done and I'll check what devices were added.
 >

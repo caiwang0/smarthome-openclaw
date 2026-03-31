@@ -4,11 +4,14 @@
 
 Xiaomi Home (`xiaomi_home`) connects Xiaomi/Mi ecosystem devices via the Xiaomi cloud. Devices are managed through the Mi Home app and exposed to Home Assistant after OAuth authentication.
 
+**⚠️ This is a custom integration — requires HACS.** It is NOT the same as `xiaomi_miio` (which is built-in). If HACS is not installed, install it first (see CLAUDE.md HACS Setup section).
+
 ## Setup
 
 Uses OAuth config flow. See TOOLS.md for the generic config flow process.
 
 **Integration domain:** `xiaomi_home`
+**Source:** HACS (custom integration)
 
 **Start the flow:**
 ```bash

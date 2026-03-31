@@ -70,21 +70,95 @@ For the full list of trigger types (event, webhook, mqtt, tag, template, device,
 
 Every integration has its own setup flow with different steps and options. **Do NOT hardcode or assume what the options are.**
 
-### Always offer BOTH options
+### Step 0 — Check if the integration is available (MANDATORY)
 
-When a user wants to add an integration, ALWAYS present both:
+**Before doing ANYTHING else**, check whether the integration domain is already installed in HA:
 
-**ALWAYS start your response with both options at once.** First, get the Pi's IP with `hostname -I | awk '{print $1}'`, then present:
+```bash
+HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
+
+# Check if integration domain is available
+curl -s http://localhost:8123/api/config/config_entries/flow_handlers \
+  -H "Authorization: Bearer $HA_TOKEN" | python3 -c "
+import json, sys
+handlers = json.load(sys.stdin)
+target = '<integration_domain>'
+if target in handlers:
+    print(f'AVAILABLE: {target} is a built-in or already-installed integration')
+else:
+    print(f'NOT_AVAILABLE: {target} is not installed — likely needs HACS')
+"
+```
+
+**If NOT_AVAILABLE:**
+1. The integration is probably a **custom integration** that requires HACS
+2. Check if HACS is installed: `curl -s http://localhost:8123/api/config/config_entries/flow_handlers -H "Authorization: Bearer $HA_TOKEN" | grep -q hacs && echo "HACS_OK" || echo "HACS_MISSING"`
+3. If HACS is missing, install it first (see HACS setup below)
+4. If HACS is installed, install the custom integration through HACS, then restart HA
+5. After restart, re-check that the integration domain is now available before starting the config flow
+
+**Known integrations that need HACS (NOT built-in):**
+
+| User says | Integration domain | Notes |
+|---|---|---|
+| "Xiaomi Home" | `xiaomi_home` | Custom integration, OAuth-based. NOT the same as `xiaomi_miio` |
+
+**Known built-in integrations (no HACS needed):**
+
+| User says | Integration domain | Notes |
+|---|---|---|
+| "Xiaomi Miio" | `xiaomi_miio` | Built-in, cloud-based with username/password |
+| "Philips Hue" | `hue` | Built-in, local discovery |
+| "Google Home" / "Google Cast" | `cast` | Built-in |
+
+**CRITICAL:** Do NOT substitute a different integration when the one the user asked for is not available. If the user says "Xiaomi Home" and `xiaomi_home` is not installed, do NOT offer `xiaomi_miio` instead — install `xiaomi_home` via HACS. If genuinely unsure which integration the user wants, ask them to clarify.
+
+**When encountering an integration you don't recognize:** Always run the Step 0 check first. If it's NOT_AVAILABLE, tell the user it may need HACS and ask if they want to proceed with installation. Don't guess or assume — different integrations have different names and domains.
+
+### HACS Setup (if needed)
+
+If HACS is not installed and a custom integration requires it:
+
+```bash
+# Download and install HACS
+wget -O - https://get.hacs.xyz | bash -
+
+# Restart HA to load HACS
+curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
+  -H "Authorization: Bearer $HA_TOKEN"
+```
+
+After HA restarts, HACS needs a one-time GitHub authorization via the HA UI config flow. Start the HACS config flow and guide the user through the GitHub device code step.
+
+### MANDATORY — Show the dashboard link (DO NOT SKIP THIS)
+
+**Every single time you start an integration setup, your FIRST message to the user MUST contain the HA dashboard link.** This is non-negotiable. No exceptions. Not after HACS. Not after restart. EVERY time.
+
+Before responding, run:
+```bash
+PI_IP=$(hostname -I | awk '{print $1}')
+echo "http://${PI_IP}:8123/config/integrations/dashboard"
+```
+
+Then your response MUST start with EXACTLY this structure (fill in the actual IP and integration name):
 
 > **Option 1 — Do it yourself:** Open this link in your browser:
 > http://<PI_IP>:8123/config/integrations/dashboard
-> Click "Add Integration" → search for [name]. Let me know when done.
+> Click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
 >
-> **Option 2 — I'll guide you through it.** Here's the first step:
+> **Option 2 — I'll guide you step by step:** (details below)
 
-Then immediately show the first form step below. The user sees both options and can pick either without extra back-and-forth. If they use the HA UI, just wait and check `/api/devices` when they're done.
+**Only AFTER showing both options**, proceed with the guided setup details.
 
-**Important:** For Option 1, send the URL as a bare link on its own line — do NOT use markdown `[text](url)` format. Bare URLs auto-link correctly on all platforms. Markdown links often break with long URLs.
+**This applies at EVERY stage:**
+- First time the user asks to add an integration? Show the link.
+- After HACS installs and HA restarts? Show the link AGAIN.
+- Integration failed and you're retrying? Show the link AGAIN.
+- The user already saw it before? Show it AGAIN anyway.
+
+**Important:** Send the URL as a bare link on its own line — do NOT use markdown `[text](url)` format. Bare URLs auto-link correctly on all platforms.
+
+**Important:** If Step 0 showed the integration is NOT_AVAILABLE, handle HACS installation first. But once the integration is available and you're starting the config flow, you MUST show the link.
 
 ### Guided Setup Process
 
