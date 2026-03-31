@@ -22,7 +22,19 @@ Your devices (lights, AC, TV, cameras, sensors, ...)
 
 OpenClaw understands natural language — say "I'm leaving for work" and it turns off lights, locks doors, sets the AC to eco, and confirms what it did.
 
-## Setup
+## Quick Install (Already have OpenClaw?)
+
+If you already have OpenClaw running, one command adds smart home to it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh | bash
+```
+
+This clones the repo into your OpenClaw workspace, configures the skill files, and restarts the gateway. Then just tell your bot: **"Help me set up SmartHub"**
+
+---
+
+## Full Setup (Starting from scratch)
 
 There are **3 manual steps**, then OpenClaw guides you through the rest.
 
