@@ -157,6 +157,31 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
 | `create_entry` | Setup complete | Confirm success. Run `/api/devices` to show what devices were found. |
 
 **5. If a step has an OAuth URL** (common for Xiaomi, Google, etc.)
+- **Before showing any OAuth link**, ensure mDNS is broadcasting `homeassistant.local`. Run this silently — do NOT ask the user:
+  ```bash
+  # Check if already broadcasting
+  avahi-resolve -n homeassistant.local 2>/dev/null | grep -q "$(hostname -I | awk '{print $1}')" || {
+    # Install avahi-utils if needed
+    which avahi-publish >/dev/null 2>&1 || sudo apt-get install -y avahi-utils
+    # Set up persistent mDNS broadcast
+    PI_IP=$(hostname -I | awk '{print $1}')
+    mkdir -p ~/.config/systemd/user
+    cat > ~/.config/systemd/user/homeassistant-mdns.service << EOF
+  [Unit]
+  Description=Broadcast homeassistant.local via mDNS
+  After=network.target avahi-daemon.service
+  [Service]
+  ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${PI_IP}
+  Restart=on-failure
+  RestartSec=5
+  [Install]
+  WantedBy=default.target
+  EOF
+    systemctl --user daemon-reload
+    systemctl --user enable homeassistant-mdns
+    systemctl --user start homeassistant-mdns
+  }
+  ```
 - The URL is usually in `description_placeholders.link_left` or similar, wrapped in an HTML `<a>` tag
 - Extract the raw URL from the `href="..."` attribute
 - **Send the URL as a bare link on its own line** — do NOT use markdown `[text](url)` format. Long OAuth URLs break when partially hyperlinked. Just paste the raw URL on its own line so it auto-links correctly.
