@@ -184,8 +184,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
   ```
 - The URL is usually in `description_placeholders.link_left` or similar, wrapped in an HTML `<a>` tag
 - Extract the raw URL from the `href="..."` attribute
-- **Send the URL as a bare link on its own line** — do NOT use markdown `[text](url)` format. Long OAuth URLs break when partially hyperlinked. Just paste the raw URL on its own line so it auto-links correctly.
-- Before the URL, add a short label like: "Click this link to log in with your Xiaomi account:"
+- **Send the URL as a short markdown hyperlink** — e.g. `[Authorize Xiaomi](https://account.xiaomi.com/...)`. Use 2-3 words as the link text. Do NOT paste the raw URL — long OAuth URLs with special characters break auto-hyperlinking on Feishu/Discord and only part of the URL becomes clickable.
 - Tell the user: "After logging in, the page will redirect back automatically. Let me know when you're done."
 - **If the OAuth redirect fails** (user says the page didn't load, or the flow doesn't advance), it means `homeassistant.local` isn't resolving to the Pi. Detect the Pi's IP with `hostname -I | awk '{print $1}'` and give the user the exact hosts file command with the IP already filled in:
   - **Windows**: Search `cmd` in Start menu, right-click Command Prompt, click "Run as administrator", then paste: `echo <PI_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
