@@ -142,9 +142,7 @@ echo "http://${PI_IP}:8123/config/integrations/dashboard"
 
 Then your response MUST start with EXACTLY this structure (fill in the actual IP and integration name):
 
-> **Option 1 — Do it yourself:** Open this link in your browser:
-> http://<PI_IP>:8123/config/integrations/dashboard
-> Click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
+> **Option 1 — Do it yourself:** [Open HA Integrations](http://<PI_IP>:8123/config/integrations/dashboard) → click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
 >
 > **Option 2 — I'll guide you step by step:** (details below)
 
@@ -155,8 +153,6 @@ Then your response MUST start with EXACTLY this structure (fill in the actual IP
 - After HACS installs and HA restarts? Show the link AGAIN.
 - Integration failed and you're retrying? Show the link AGAIN.
 - The user already saw it before? Show it AGAIN anyway.
-
-**Important:** Send the URL as a bare link on its own line — do NOT use markdown `[text](url)` format. Bare URLs auto-link correctly on all platforms.
 
 **Important:** If Step 0 showed the integration is NOT_AVAILABLE, handle HACS installation first. But once the integration is available and you're starting the config flow, you MUST show the link.
 
@@ -258,8 +254,8 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
   ```
 - The URL is usually in `description_placeholders.link_left` or similar, wrapped in an HTML `<a>` tag
 - Extract the raw URL from the `href="..."` attribute
-- **Send the URL as a short markdown hyperlink** — e.g. `[Authorize Xiaomi](https://account.xiaomi.com/...)`. Use 2-3 words as the link text. Do NOT paste the raw URL — long OAuth URLs with special characters break auto-hyperlinking on Feishu/Discord and only part of the URL becomes clickable.
-- Tell the user: "After logging in, the page will redirect back automatically. Let me know when you're done."
+- **NEVER paste the raw OAuth URL.** Always send it as a markdown hyperlink: `[Authorize <integration name>](extracted_url)`. See the "All URLs must be markdown hyperlinks" rule above.
+- Tell the user: "Open the link, log in, and let me know when you're done."
 - **If the OAuth redirect fails** (user says the page didn't load, or the flow doesn't advance), it means `homeassistant.local` isn't resolving to the Pi. Detect the Pi's IP with `hostname -I | awk '{print $1}'` and give the user the exact hosts file command with the IP already filled in:
   - **Windows**: Search `cmd` in Start menu, right-click Command Prompt, click "Run as administrator", then paste: `echo <PI_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
   - **Mac/Linux**: `echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts`
@@ -291,6 +287,15 @@ curl -s -X DELETE http://localhost:8123/api/config/config_entries/flow/<flow_id>
 **You are a guide, not an autopilot.** Each integration is different. Read the actual response, present every option to the user, and only proceed with their explicit choices. If you don't understand a field, show it to the user as-is and ask what they want.
 
 ## Rules
+
+**CRITICAL — All URLs sent to the user MUST be markdown hyperlinks:**
+- **NEVER send a raw URL to the user.** Always wrap it as `[Short descriptive text](url)`.
+- Use 2-5 words as the link text that describe what the link does, e.g.:
+  - OAuth login → `[Authorize Xiaomi](https://account.xiaomi.com/...)`
+  - HA dashboard → `[Open HA Integrations](http://192.168.x.x:8123/config/integrations/dashboard)`
+  - GitHub device code → `[Enter GitHub code](https://github.com/login/device)`
+- **Why:** Raw URLs are long, ugly, and often break on messaging platforms (Feishu, Discord) — only part of the URL becomes clickable. Markdown hyperlinks always work.
+- This applies to ALL URLs: OAuth links, dashboard links, documentation links, any link.
 
 **CRITICAL — Confirmation required for persistent changes:**
 - **NEVER create, modify, or delete an automation without showing the user a summary first and waiting for their explicit "yes".**
