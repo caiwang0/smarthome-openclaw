@@ -179,6 +179,26 @@ OpenClaw will walk you through everything else:
 | **Add Integrations** | Walks you through adding Xiaomi, Philips Hue, Broadlink, or any other brand |
 | **Discover Devices** | Shows you what devices were found after each integration |
 
+### Hosts File Setup (Required for OAuth Integrations)
+
+Some integrations (Xiaomi, Google Home, etc.) use OAuth login which redirects your browser to `homeassistant.local:8123`. Your computer needs to know that hostname points to the Pi. OpenClaw will detect the Pi's IP and give you the exact command — just run it.
+
+**Windows** (run CMD as Administrator):
+```cmd
+echo <PI_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts
+```
+
+**Mac / Linux:**
+```bash
+echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts
+```
+
+> OpenClaw will fill in `<PI_IP>` automatically during setup. You just need to copy-paste and run the command it gives you.
+
+**Video walkthrough:** [docs/hosts-file-setup.mp4](docs/hosts-file-setup.mp4)
+
+---
+
 ### Example conversation:
 
 ```

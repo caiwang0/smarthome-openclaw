@@ -157,7 +157,10 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
 - Extract the raw URL from the `href="..."` attribute
 - **Send the raw URL on its own line** — do NOT wrap it in markdown `[text](url)` format because Discord won't render those as clickable. Just paste the bare URL so it auto-links.
 - Tell the user: "Open this link and log in. Let me know when you're done."
-- Remind them: `homeassistant.local` must resolve to `the Pi's IP address (run `hostname -I | awk '{print $1}'` to find it)` (they may need to edit their hosts file)
+- **Before showing the OAuth link**, detect the Pi's IP with `hostname -I | awk '{print $1}'` and give the user the exact hosts file command for their OS:
+  - **Windows** (run CMD as Administrator): `echo <PI_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
+  - **Mac/Linux**: `echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts`
+  - Explain this is needed because the OAuth redirect goes to `homeassistant.local` and their computer needs to know that points to the Pi
 - After user confirms, poll the flow status until it advances to the next step
 
 **6. Repeat steps 2-5 until the flow completes (`type` = `create_entry`)**
