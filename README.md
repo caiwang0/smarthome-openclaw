@@ -179,30 +179,6 @@ OpenClaw will walk you through everything else:
 | **Add Integrations** | Walks you through adding Xiaomi, Philips Hue, Broadlink, or any other brand |
 | **Discover Devices** | Shows you what devices were found after each integration |
 
-### Hosts File Setup (Required for OAuth Integrations)
-
-Some integrations (Xiaomi, Google Home, etc.) use OAuth login which redirects your browser to `homeassistant.local:8123`. Your computer needs to know that hostname points to the Pi. OpenClaw will detect the Pi's IP and give you the exact command — just run it.
-
-#### Windows
-
-1. Search `cmd` in the Start menu, right-click **Command Prompt**, and click **Run as administrator**:
-
-   ![Run CMD as administrator](docs/cmd-run-as-admin.png)
-
-2. Paste the command OpenClaw gives you and press Enter:
-
-   ![Paste the hosts command](docs/cmd-paste-command.png)
-
-Done. The OAuth redirect will now work.
-
-#### Mac / Linux
-
-```bash
-echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts
-```
-
-> OpenClaw detects the Pi's IP automatically and gives you the ready-to-paste command.
-
 ---
 
 ### Example conversation:
@@ -290,6 +266,23 @@ home-assistant/
 - Run `docker ps` — is the `homeassistant` container running?
 - Try `curl http://localhost:8123/api/ -H "Authorization: Bearer YOUR_TOKEN"` — should return `{"message": "API running."}`
 - Check `.env` has the correct token
+
+**OAuth redirect fails during integration setup (Xiaomi, Google Home, etc.):**
+
+The OAuth login redirects your browser to `homeassistant.local:8123`. This usually works automatically via mDNS if your computer is on the same network as the Pi. If it doesn't, you need to add the Pi's IP to your hosts file. OpenClaw will detect the IP and give you the exact command.
+
+*Windows* — search `cmd` in Start menu, right-click Command Prompt, click **Run as administrator**:
+
+![Run CMD as administrator](docs/cmd-run-as-admin.png)
+
+Then paste the command OpenClaw gave you:
+
+![Paste the hosts command](docs/cmd-paste-command.png)
+
+*Mac / Linux:*
+```bash
+echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts
+```
 
 **Tunnel not working:**
 - Make sure `cloudflared` is running: `ps aux | grep cloudflared`
