@@ -24,13 +24,11 @@ OpenClaw understands natural language — say "I'm leaving for work" and it turn
 
 ## Quick Install (Already have OpenClaw?)
 
-If you already have OpenClaw running, one command adds smart home to it:
+If you already have OpenClaw running, just tell your bot:
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh | bash
-```
+> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh | bash`
 
-This clones the repo into your OpenClaw workspace, configures the skill files, and restarts the gateway. Then just tell your bot: **"Help me set up SmartHub"**
+Then tell it: **"Help me set up SmartHub"**
 
 ---
 
