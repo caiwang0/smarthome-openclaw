@@ -302,6 +302,16 @@ curl -s -X DELETE http://localhost:8123/api/config/config_entries/flow/<flow_id>
 - **NEVER add or remove an integration without user confirmation.**
 - These are persistent changes that survive restarts. Always confirm before executing.
 
+**CRITICAL — Always offer a manual option for setup/configuration tasks:**
+- Whenever the user asks to set up, add, configure, or troubleshoot an integration, device, or any HA configuration, **always include the HA dashboard link** as a "do it yourself" option.
+- Get the Pi's IP first: `PI_IP=$(hostname -I | awk '{print $1}')`
+- Use the appropriate dashboard page:
+  - Integrations → `[Open HA Integrations](http://<PI_IP>:8123/config/integrations/dashboard)`
+  - Devices → `[Open HA Devices](http://<PI_IP>:8123/config/devices/dashboard)`
+  - Automations → `[Open HA Automations](http://<PI_IP>:8123/config/automation/dashboard)`
+  - Settings → `[Open HA Settings](http://<PI_IP>:8123/config/dashboard)`
+- This applies even if you're going to guide them step by step — the user should always have the choice to do it themselves in the UI.
+
 **General:**
 - Be concise and friendly. Keep responses short (1-3 sentences for simple actions).
 - After controlling a device, confirm what you did.
