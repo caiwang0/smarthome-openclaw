@@ -97,6 +97,8 @@ else:
 4. If HACS is installed, install the custom integration through HACS, then restart HA
 5. After restart, re-check that the integration domain is now available before starting the config flow
 
+**IMPORTANT: The entire HACS + custom integration installation process is INFRASTRUCTURE — handle it silently.** Do NOT show the user HACS installation steps, GitHub authorization, or custom integration download. Just do it. The user only needs to interact when the actual integration config flow starts (e.g., choosing a cloud region, authorizing OAuth). Tell the user something brief like "Setting up the integration, one moment..." while you work.
+
 **Known integrations that need HACS (NOT built-in):**
 
 | User says | Integration domain | Notes |
@@ -115,20 +117,59 @@ else:
 
 **When encountering an integration you don't recognize:** Always run the Step 0 check first. If it's NOT_AVAILABLE, tell the user it may need HACS and ask if they want to proceed with installation. Don't guess or assume — different integrations have different names and domains.
 
-### HACS Setup (if needed)
+### HACS Setup (if needed) — DO THIS SILENTLY
 
-If HACS is not installed and a custom integration requires it:
+**The entire HACS setup is infrastructure. Do NOT involve the user.** Handle everything yourself:
 
+**Step 1: Install HACS into HA**
 ```bash
-# Download and install HACS
-wget -O - https://get.hacs.xyz | bash -
+# HA config is often owned by root (Docker). Install via docker exec:
+docker exec homeassistant bash -c 'wget -O - https://get.hacs.xyz | bash -'
 
 # Restart HA to load HACS
 curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
   -H "Authorization: Bearer $HA_TOKEN"
+# Wait for HA to come back
+for i in $(seq 1 30); do curl -s http://localhost:8123/api/ 2>/dev/null && break; sleep 2; done
 ```
 
-After HA restarts, HACS needs a one-time GitHub authorization via the HA UI config flow. Start the HACS config flow and guide the user through the GitHub device code step.
+**Step 2: Activate HACS (GitHub authorization) — handle silently**
+```bash
+# Start HACS config flow
+curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
+  -H "Authorization: Bearer $HA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"handler": "hacs"}'
+```
+HACS activation requires a GitHub device code flow. The config flow will return a step with a GitHub URL and a user code. **Complete this yourself:**
+- Extract the GitHub device code URL and the code from the response
+- Use the GitHub device flow to authorize (you have shell access — use `curl` to POST to `https://github.com/login/device/code` and `https://github.com/login/oauth/access_token`)
+- If you cannot complete the GitHub flow programmatically, only then ask the user to open the link and enter the code — but try to handle it yourself first
+- After authorization, submit the flow step to complete HACS activation
+
+**Step 3: Install the custom integration via HACS**
+```bash
+# Find the HA config directory
+HA_CONFIG=$(docker inspect homeassistant --format='{{range .Mounts}}{{if eq .Destination "/config"}}{{.Source}}{{end}}{{end}}')
+
+# Download the integration directly (faster than HACS API)
+# Example for xiaomi_home:
+cd "${HA_CONFIG}/custom_components" 2>/dev/null || mkdir -p "${HA_CONFIG}/custom_components" && cd "${HA_CONFIG}/custom_components"
+# Use the integration's GitHub releases or HACS download endpoint
+
+# Restart HA to load the new integration
+curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
+  -H "Authorization: Bearer $HA_TOKEN"
+for i in $(seq 1 30); do curl -s http://localhost:8123/api/ 2>/dev/null && break; sleep 2; done
+```
+
+**Step 4: Verify the integration is now available**
+```bash
+curl -s http://localhost:8123/api/config/config_entries/flow_handlers \
+  -H "Authorization: Bearer $HA_TOKEN" | grep -q '<integration_domain>' && echo "READY" || echo "STILL_MISSING"
+```
+
+**Only after the integration is confirmed READY**, proceed to the user-facing integration setup (show dashboard link + guided flow).
 
 ### MANDATORY — Show the dashboard link (DO NOT SKIP THIS)
 
