@@ -5,38 +5,67 @@ Control your Home Assistant with natural language through Discord, Teams, or Fei
 ## How It Works
 
 ```
-You (Discord/Teams/Feishu)
-  │
-  ▼
-OpenClaw (AI agent)
-  │
-  ▼
-SmartHub API (Bun/Elysia)
-  │
-  ▼
-Home Assistant (Docker)
-  │
-  ▼
-Your devices (lights, AC, TV, cameras, sensors, ...)
+  "Turn off the lights"         "Set AC to 24"         "I'm leaving for work"
+          │                          │                          │
+          └──────────────────────────┼──────────────────────────┘
+                                     │
+                                     ▼
+                        ┌────────────────────────┐
+                        │   Discord / Teams /    │
+                        │       Feishu           │
+                        └───────────┬────────────┘
+                                    │
+                                    ▼
+                        ┌────────────────────────┐
+                        │      OpenClaw          │
+                        │   (AI agent, Claude)   │
+                        │                        │
+                        │  Reads skill files in  │
+                        │  tools/ to know how    │
+                        │  to control devices    │
+                        └───────────┬────────────┘
+                                    │
+                                    ▼
+                        ┌────────────────────────┐
+                        │    SmartHub API         │
+                        │   (Bun / Elysia)       │
+                        │                        │
+                        │  WebSocket to HA,      │
+                        │  device aggregation,   │
+                        │  error recovery        │
+                        └───────────┬────────────┘
+                                    │
+                                    ▼
+                        ┌────────────────────────┐
+                        │   Home Assistant        │
+                        │      (Docker)           │
+                        └───────────┬────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ▼               ▼               ▼
+                 Lights           AC/TV          Sensors
+                Switches        Cameras         Cookers
 ```
 
-OpenClaw understands natural language — say "I'm leaving for work" and it turns off lights, locks doors, sets the AC to eco, and confirms what it did.
-
-## Quick Install (Already have OpenClaw?)
-
-If you already have OpenClaw running, just tell your bot:
-
-> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh | bash`
-
-Then tell it: **"Help me set up SmartHub"**
+Say "I'm leaving for work" and OpenClaw turns off lights, sets the AC to eco, and confirms what it did.
 
 ---
 
-## Full Setup (Starting from scratch)
+## Quick Install
 
-There are **3 manual steps**, then OpenClaw guides you through the rest.
+**Already have OpenClaw running?** Just tell your bot:
 
-### Step 1: Install OpenClaw
+> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh | bash`
+
+Then say: **"Help me set up SmartHub"** — OpenClaw handles the rest.
+
+---
+
+## Full Setup
+
+Three manual steps, then OpenClaw guides you through everything else.
+
+### 1. Install OpenClaw
 
 ```bash
 # macOS / Linux
@@ -46,40 +75,39 @@ curl -fsSL https://get.openclaw.dev | sh
 npm install -g @openclaw/cli
 ```
 
-Verify it's installed:
+### 2. Create a Bot
 
-```bash
-openclaw --version
-```
+You need a bot token so OpenClaw can send and receive messages.
 
-### Step 2: Create a Bot on Your Messaging Platform
+<details>
+<summary><strong>Discord</strong></summary>
 
-You need a bot token so OpenClaw can send/receive messages.
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications) → "New Application"
+2. **Bot** tab → "Reset Token" → copy the token
+3. Enable **Message Content Intent** under Privileged Gateway Intents
+4. **OAuth2** → URL Generator → scope: `bot` → permissions: Send Messages, Read Message History, Add Reactions
+5. Open the generated URL to invite the bot to your server
+6. Note your **Guild ID** and **Channel ID** (enable Developer Mode in Discord settings, then right-click to copy)
 
-**Discord:**
-1. Go to https://discord.com/developers/applications
-2. Click "New Application" — name it whatever you want (e.g., "SmartHub")
-3. Go to **Bot** tab → click "Reset Token" → copy the token
-4. Enable these under **Privileged Gateway Intents**: Message Content Intent
-5. Go to **OAuth2** → URL Generator → select `bot` scope → select permissions: Send Messages, Read Message History, Add Reactions
-6. Copy the generated URL, open it in your browser, and invite the bot to your server
-7. Note down your **Guild ID** (server) and **Channel ID** — enable Developer Mode in Discord settings, then right-click server → Copy Server ID, right-click channel → Copy Channel ID
+</details>
 
-**Teams:** See [OpenClaw Teams Setup Guide](https://docs.openclaw.dev/channels/teams)
+<details>
+<summary><strong>Teams</strong></summary>
 
-**Feishu:** See [OpenClaw Feishu Setup Guide](https://docs.openclaw.dev/channels/feishu)
+See [OpenClaw Teams Setup Guide](https://docs.openclaw.dev/channels/teams)
 
-### Step 3: Configure and Start OpenClaw
+</details>
 
-Once OpenClaw is running, it will ask you for the repo URL. You can use this one:
+<details>
+<summary><strong>Feishu</strong></summary>
 
-```
-https://github.com/caiwang0/smarthome-openclaw
-```
+See [OpenClaw Feishu Setup Guide](https://docs.openclaw.dev/channels/feishu)
 
-Or if you've forked it, send OpenClaw your fork URL and it will clone it for you.
+</details>
 
-Create the OpenClaw gateway config:
+### 3. Configure and Start OpenClaw
+
+Create the config directory and gateway config:
 
 ```bash
 mkdir -p ~/.openclaw-smarthub
@@ -91,48 +119,31 @@ Create `~/.openclaw-smarthub/openclaw.json`:
 {
   "agents": {
     "defaults": {
-      "model": {
-        "primary": "anthropic/claude-sonnet-4-6"
-      },
+      "model": { "primary": "anthropic/claude-sonnet-4-6" },
       "workspace": "/path/to/home-assistant",
       "timeoutSeconds": 600,
-      "sandbox": {
-        "mode": "off"
-      }
+      "sandbox": { "mode": "off" }
     }
   },
   "tools": {
     "profile": "coding",
-    "exec": {
-      "security": "full",
-      "ask": "off"
-    }
+    "exec": { "security": "full", "ask": "off" }
   },
   "channels": {
     "discord": {
       "enabled": true,
       "token": "YOUR_DISCORD_BOT_TOKEN",
       "groupPolicy": "open",
-      "allowFrom": [
-        "YOUR_DISCORD_USER_ID"
-      ],
+      "allowFrom": ["YOUR_DISCORD_USER_ID"],
       "guilds": {
         "YOUR_GUILD_ID": {
           "requireMention": false,
-          "channels": {
-            "YOUR_CHANNEL_ID": {
-              "allow": true
-            }
-          }
+          "channels": { "YOUR_CHANNEL_ID": { "allow": true } }
         }
       }
     }
   },
-  "gateway": {
-    "port": 18790,
-    "mode": "local",
-    "bind": "loopback"
-  },
+  "gateway": { "port": 18790, "mode": "local", "bind": "loopback" },
   "plugins": {
     "entries": {
       "acpx": {
@@ -150,11 +161,14 @@ Create `~/.openclaw-smarthub/openclaw.json`:
 ```
 
 Replace the placeholders:
-- `YOUR_DISCORD_BOT_TOKEN` — from Step 2
-- `YOUR_DISCORD_USER_ID` — right-click your name in Discord → Copy User ID
-- `YOUR_GUILD_ID` — your server ID
-- `YOUR_CHANNEL_ID` — the channel you want the bot in
-- `/path/to/home-assistant` — absolute path to this cloned repo (both `workspace` and `cwd`)
+
+| Placeholder | Where to find it |
+|---|---|
+| `YOUR_DISCORD_BOT_TOKEN` | From step 2 |
+| `YOUR_DISCORD_USER_ID` | Right-click your name in Discord → Copy User ID |
+| `YOUR_GUILD_ID` | Right-click your server → Copy Server ID |
+| `YOUR_CHANNEL_ID` | Right-click the channel → Copy Channel ID |
+| `/path/to/home-assistant` | Absolute path to this cloned repo (both places) |
 
 Start the gateway:
 
@@ -162,126 +176,143 @@ Start the gateway:
 openclaw gateway start --profile smarthub
 ```
 
-Verify the bot comes online in your Discord channel. Send it a message — if it responds, you're good.
+Once the bot comes online in your Discord channel, say: **"Help me set up SmartHub"**
 
 ---
 
-## From Here, OpenClaw Guides You
-
-Once OpenClaw is running in your messaging channel, tell it:
-
-> **"Help me set up SmartHub"**
-
-OpenClaw will walk you through everything else:
-
-### What OpenClaw handles for you:
+## What OpenClaw Sets Up For You
 
 | Step | What happens |
 |------|-------------|
-| **Install Docker** | Checks if Docker is installed, gives you the install command if not |
-| **Start Home Assistant** | Runs `docker compose up -d` to launch HA and the API |
-| **HA First-Time Setup** | Tells you to open `http://localhost:8123` in your browser, create your admin user, and walks you through each screen |
-| **Get Access Token** | Guides you: Profile → Security → Long-Lived Access Tokens → Create Token → copy it back to the chat |
-| **Configure .env** | Takes the token you pasted and writes it to `.env` |
-| **Restart API** | Restarts the API container so it picks up the new token |
-| **Verify Connection** | Confirms HA is reachable and lists any devices already connected |
-| **Set Up Tunnel** | Installs `cloudflared` and creates a public URL for remote access |
-| **Add Integrations** | Walks you through adding Xiaomi, Philips Hue, Broadlink, or any other brand |
-| **Discover Devices** | Shows you what devices were found after each integration |
+| Install Docker | Checks if Docker is installed, gives you the command if not |
+| Start Home Assistant | Runs `docker compose up -d` to launch HA and the API |
+| HA onboarding | Tells you to open the browser, create your admin user |
+| Access token | Guides you to create a long-lived token and paste it in chat |
+| Configure .env | Writes the token and verifies the connection |
+| Add integrations | Walks you through adding Xiaomi, Philips Hue, or any other brand |
+| Discover devices | Shows what devices were found after each integration |
+| Remote access *(optional)* | Sets up a Cloudflare Tunnel so you can reach HA from anywhere |
 
----
-
-### Example conversation:
+### Example Conversation
 
 ```
 You:      Help me set up SmartHub
-OpenClaw: Let's get your smart home running. First, send me your SmartHub repo URL
-          (or I can use the default: https://github.com/caiwang0/smarthome-openclaw)
-
-You:      Just use the default
-OpenClaw: Got it. Do you have Docker installed? Run: docker --version
+OpenClaw: Let's get your smart home running. Do you have Docker installed?
+          Run: docker --version
 
 You:      Docker version 27.5.1
-OpenClaw: Docker is ready. Let me clone the repo and start Home Assistant...
-          Running: git clone https://github.com/caiwang0/smarthome-openclaw && cd smarthome-openclaw && docker compose up -d
-          ...
-          HA is starting up. Open http://localhost:8123 in your browser.
-          You'll see the onboarding wizard — create your admin account
-          (pick a username and password). Let me know when you're done.
+OpenClaw: Docker is ready. Starting Home Assistant...
+          Done. Open http://192.168.2.97:8123 in your browser.
+          Create your admin account and let me know when you're done.
 
-You:      Done, I created user "alice"
-OpenClaw: Great. Now go to your profile (click your initial in the bottom-left),
-          then Security tab → Long-Lived Access Tokens → Create Token.
-          Name it "openclaw" and paste the token here.
+You:      Done, created user "alice"
+OpenClaw: Now go to your profile → Security → Long-Lived Access Tokens
+          → Create Token. Name it "openclaw" and paste it here.
 
 You:      eyJhbGciOiJIUzI1NiIs...
-OpenClaw: Got it. I've saved the token to .env and restarted the API.
-          Let me verify the connection...
-          Connected to Home Assistant 2026.3.4 — 0 devices found.
-          Want to set up remote access with a public URL, or add your
-          first device integration?
+OpenClaw: Saved. Connection verified — Home Assistant 2026.3.4, 0 devices.
+          Want to add your first device integration?
 ```
 
-## What You Can Do After Setup
+---
 
-Once everything is connected, talk to OpenClaw naturally:
+## After Setup
 
-| Say this | OpenClaw does this |
-|----------|-------------------|
+Talk to OpenClaw naturally:
+
+| You say | What happens |
+|---------|-------------|
 | "Turn off the living room lights" | Controls the device via HA |
-| "I'm leaving for work" | Turns off lights, sets AC to eco, locks doors |
-| "Why is the bedroom so hot?" | Checks sensors, AC state, and diagnoses the issue |
-| "What devices do I have?" | Lists all connected devices by room |
-| "Add a new integration" | Walks you through the setup flow |
 | "Set the AC to 24" | Calls the climate service |
+| "I'm leaving for work" | Turns off lights, sets AC to eco, locks doors |
+| "Why is the bedroom so hot?" | Checks sensors, AC state, diagnoses the issue |
+| "What devices do I have?" | Lists all connected devices by room |
+| "Turn off the TV at 3pm every day" | Creates an automation |
+| "Add Xiaomi Home" | Walks you through the integration setup |
 
-## Architecture
+---
+
+## Project Structure
 
 ```
 home-assistant/
-├── ha-config/           # Home Assistant configuration (mounted into Docker)
-├── api/                 # SmartHub API — Bun/Elysia, proxies to HA
+├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
+├── TOOLS.md                     # Skill router — maps devices to files
+├── docker-compose.yml           # Runs HA + SmartHub API
+├── .env                         # HA token, API port, timezone
+│
+├── api/                         # SmartHub API (Bun/Elysia)
 │   └── src/
-│       ├── index.ts         # API entry point
-│       ├── ha-client.ts     # WebSocket connection to HA
-│       └── routes/          # API routes (devices, areas, services, chat, camera)
-├── tools/               # OpenClaw skill files — device knowledge, commands, quirks
-│   ├── _common.md           # Shared API patterns and auth
-│   ├── automations/         # Automation creation guide
-│   ├── xiaomi-home/         # Xiaomi-specific commands and quirks
-│   └── printer/             # Printer commands
-├── docker-compose.yml   # Runs HA + API
-├── .env                 # HA token, API port, timezone
-├── CLAUDE.md            # OpenClaw's system instructions for this project
-├── TOOLS.md             # Skill router — maps devices to skill files
-└── docs/                # Research, specs, design docs
+│       ├── ha-client.ts         #   WebSocket connection to HA
+│       ├── device-aggregator.ts #   Groups entities by device
+│       └── routes/              #   REST endpoints
+│
+├── tools/                       # Skill files — the agent's knowledge base
+│   ├── _common.md               #   API patterns, auth, network
+│   ├── _errors.md               #   Error handling & recovery
+│   ├── _services.md             #   Services by domain (light, climate, etc.)
+│   ├── integrations/
+│   │   └── _guide.md            #   Integration setup (HACS, OAuth, config flows)
+│   ├── automations/
+│   │   ├── _guide.md            #   Automation workflow & checklist
+│   │   └── _reference.md        #   JSON schema, trigger/action types, templates
+│   ├── xiaomi-home/
+│   │   ├── _integration.md      #   Xiaomi setup, cloud regions, quirks
+│   │   ├── tv.md                #   TV commands & quirks
+│   │   ├── ma8-ac.md            #   AC commands & quirks
+│   │   └── p1v2-cooker.md       #   Smart cooker commands & quirks
+│   └── printer/
+│       └── office-printer.md    #   CUPS printer setup
+│
+├── ha-config/                   # HA configuration (Docker volume)
+└── docs/                        # Research, specs, design docs
 ```
+
+### How the Agent Finds Knowledge
+
+```
+CLAUDE.md (always loaded)
+    │
+    ├─ "Before controlling a device" ──→ reads tools/_common.md
+    │                                     then reads device skill file
+    │
+    ├─ "Before creating automation" ───→ reads tools/automations/_guide.md
+    │
+    └─ "Before adding integration" ────→ reads tools/integrations/_guide.md
+
+TOOLS.md (loaded on demand)
+    └─ Quick Reference table maps device names → skill files
+```
+
+Skill files are loaded **on demand**, not all at once. The agent only reads what it needs for the current task.
+
+---
 
 ## Requirements
 
-- **OpenClaw CLI** — the AI agent
-- **Docker** — runs Home Assistant
-- **A messaging platform** — Discord, Teams, or Feishu (for talking to OpenClaw)
-- **Claude API access** — OpenClaw uses Claude as its AI backend
+- **OpenClaw CLI** — the AI agent framework
+- **Docker** — runs Home Assistant and the SmartHub API
+- **A messaging platform** — Discord, Teams, or Feishu
+- **Claude API access** — OpenClaw uses Claude as its backend
 
 ## Troubleshooting
 
 **Bot doesn't respond in Discord:**
-- Check that the bot is online (green dot) in the member list
-- Make sure `requireMention` is `false` in `openclaw.json` if you don't want to @mention it
+- Check the bot is online (green dot) in the member list
+- Verify `requireMention` is `false` in `openclaw.json`
 - Check `allowFrom` includes your Discord user ID
-- Check the gateway logs: `openclaw gateway logs --profile smarthub`
+- Check logs: `openclaw gateway logs --profile smarthub`
 
 **HA is unreachable:**
-- Run `docker ps` — is the `homeassistant` container running?
-- Try `curl http://localhost:8123/api/ -H "Authorization: Bearer YOUR_TOKEN"` — should return `{"message": "API running."}`
+- Run `docker ps` — is `homeassistant` running?
+- Test: `curl http://localhost:8123/api/` — should return `{"message": "API running."}`
 - Check `.env` has the correct token
 
-**OAuth redirect fails during integration setup (Xiaomi, Google Home, etc.):**
+**OAuth redirect fails (Xiaomi, Google, etc.):**
 
-The OAuth login redirects your browser to `homeassistant.local:8123`. This usually works automatically via mDNS if your computer is on the same network as the Pi. If it doesn't, you need to add the Pi's IP to your hosts file. OpenClaw will detect the IP and give you the exact command.
+The OAuth login redirects to `homeassistant.local:8123`. This works via mDNS if your computer is on the same network. If it doesn't resolve, add the Pi's IP to your hosts file — OpenClaw will detect the IP and give you the exact command.
 
-*Windows* — search `cmd` in Start menu, right-click Command Prompt, click **Run as administrator**:
+*Windows* — run Command Prompt as administrator:
 
 ![Run CMD as administrator](docs/cmd-run-as-admin.png)
 
@@ -295,5 +326,5 @@ echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts
 ```
 
 **Tunnel not working:**
-- Make sure `cloudflared` is running: `ps aux | grep cloudflared`
-- Check HA's `configuration.yaml` has `trusted_proxies: 127.0.0.1` under `http:`
+- Check `cloudflared` is running: `ps aux | grep cloudflared`
+- Verify `trusted_proxies: 127.0.0.1` under `http:` in HA's `configuration.yaml`

@@ -6,84 +6,29 @@ This file is the entry point for all device and service knowledge. Detailed comm
 
 | Skill File | What It Covers |
 |------------|----------------|
-| [tools/_common.md](tools/_common.md) | SmartHub API, HA Direct API, auth tokens, network info |
+| [tools/_common.md](tools/_common.md) | SmartHub API, HA Direct API, auth tokens, network info, API routing rule |
+| [tools/_errors.md](tools/_errors.md) | Runtime error handling — HTTP errors, entity states, recovery steps |
+| [tools/_services.md](tools/_services.md) | Per-domain service reference (light, climate, media_player, etc.) |
+| [tools/integrations/_guide.md](tools/integrations/_guide.md) | Integration setup — HACS, config flows, OAuth, error handling |
 | [tools/xiaomi-home/_integration.md](tools/xiaomi-home/_integration.md) | Xiaomi Home setup, OAuth, cloud regions, shared quirks |
 | [tools/xiaomi-home/tv.md](tools/xiaomi-home/tv.md) | Xiaomi TV commands and quirks |
+| [tools/xiaomi-home/ma8-ac.md](tools/xiaomi-home/ma8-ac.md) | MA8 Air Conditioner commands and quirks |
+| [tools/xiaomi-home/p1v2-cooker.md](tools/xiaomi-home/p1v2-cooker.md) | P1V2 Smart Cooker commands and quirks |
 | [tools/printer/office-printer.md](tools/printer/office-printer.md) | Office printer setup and print commands |
-| [tools/automations/_guide.md](tools/automations/_guide.md) | **Automation creation** — HA API, trigger types, templates, per-domain reference |
+| [tools/automations/_guide.md](tools/automations/_guide.md) | **Automation creation** — workflow, required details checklist, per-domain triggers |
+| [tools/automations/_reference.md](tools/automations/_reference.md) | Automation JSON schema, all trigger/condition/action types, templates |
 
 **Before controlling a device**, read its skill file for the correct entity ID, commands, and known quirks.
 
 **For general API patterns** (listing devices, calling services, managing areas), read `tools/_common.md`.
 
-**For creating automations**, read `tools/automations/_guide.md` — it has the full workflow, JSON schema, and templates.
+**For creating automations**, read `tools/automations/_guide.md` — it has the full workflow and checklist.
 
 ---
 
-## Adding New Integrations (Config Flows)
+## Adding New Integrations
 
-**Step 0 — ALWAYS check if the integration exists first.** See CLAUDE.md "Step 0 — Check if the integration is available" for the full process. If the integration is not installed (e.g., `xiaomi_home` needs HACS), handle HACS installation first before proceeding.
-
-**Then offer BOTH options:**
-
-> **Option 1 — Do it yourself in the HA UI:** [Open HA Integrations](http://localhost:8123/config/integrations/dashboard) → click "Add Integration" → search for [integration name]. Let me know when you're done and I'll check what devices were added.
->
-> **Option 2 — I'll guide you step by step.** Here's the first step:
-
-Then immediately show the first form step below. This way the user sees both options at once and can pick either without waiting.
-
-**For guided setup:**
-
-Every integration has different steps and options. NEVER hardcode or assume values. Read the actual `data_schema` from each step and present ALL options to the user.
-
-**Step 1: Start a config flow**
-```bash
-HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
-
-curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"handler": "<integration_domain>"}'
-```
-
-**Step 2: For EVERY step, read the response and act based on `type`:**
-
-| `type` | Action |
-|--------|--------|
-| `form` | Read `data_schema`, present ALL fields to user, ask for their choices, then submit |
-| `external` / `progress` | Extract OAuth URL, send to user as clickable link, wait for them to confirm |
-| `abort` | Tell user the reason. If `already_in_progress`, offer to clear stale flows |
-| `create_entry` | Done! Run the post-integration skill generation (see below), then show what devices were added |
-
-**For `form` steps — present every field:**
-- `select` → show all options as a numbered list, ask user to pick
-- `multi_select` → show all options, ask user to pick one or more
-- `boolean` → ask yes/no, show the default
-- `string` / `integer` → ask user to type a value
-- **NEVER auto-fill fields without asking the user**, even if there's a default
-
-**For OAuth steps:**
-- Extract the raw URL from the response (may be in `description_placeholders` as an HTML `<a href="...">` tag — extract the `href` value)
-- **Send the raw URL on its own line** so Discord auto-links it. Do NOT use markdown `[text](url)` format — Discord doesn't render those as clickable in bot messages. Just paste the URL directly.
-- Tell user: "Click the link, log in, authorize, and let me know when done."
-- If `homeassistant.local` doesn't load, tell them to add a hosts entry: `the Pi's IP address homeassistant.local`
-- After user confirms, poll the flow to check if it advanced
-
-**Step 3: Submit user's choices**
-```bash
-curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"field_name": "user_choice", ...}'
-```
-
-**Step 4: Repeat until `type` = `create_entry`**
-
-**Clearing stale flows (if `already_in_progress`):**
-```bash
-curl -s -X DELETE http://localhost:8123/api/config/config_entries/flow/<flow_id> \
-  -H "Authorization: Bearer $HA_TOKEN"
-```
+For the full integration setup process (HACS, config flows, OAuth, form handling, error recovery), read `tools/integrations/_guide.md`.
 
 ---
 
@@ -129,17 +74,22 @@ If a device behaves unexpectedly (e.g., returns "unavailable" but still responds
 ## Device Info
 
 - **Name:** <name>
-- **Device ID:** `<device_id>`
 - **Type:** `<domain>` (<sub-type if relevant>)
 - **Model:** `<model>`
-- **Integration:** <Integration Name> (`<domain>`)
-- **Primary Entity:** `<entity_id>`
+- **Integration:** <Integration Name> (`<integration_domain>`)
+- **Primary Entity:** Look up via `/api/devices` — pattern: `<domain>.xiaomi_*_<model_slug>`
 
 ## Commands
 
 > Read the API port first: `API_PORT=$(grep API_PORT .env | cut -d= -f2)`
 
-<curl examples using http://localhost:${API_PORT}/api/services/...>
+<curl examples using http://localhost:${API_PORT}/api/services/... with placeholder entity IDs>
+
+### Key entities
+
+| Purpose | Entity pattern | Domain |
+|---------|---------------|--------|
+| <description> | `<domain>.xiaomi_*_<model>_<suffix_pattern>` | <domain> |
 
 ## Quirks
 

@@ -8,3 +8,8 @@ bun.lock
 package-lock.json
 .openclaw/
 *.tsbuildinfo
+
+# Instance-specific automation records (auto-generated per user)
+tools/automations/*.md
+!tools/automations/_guide.md
+!tools/automations/_reference.md

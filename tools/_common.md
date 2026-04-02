@@ -6,6 +6,13 @@
 > ```
 > All curl examples below use `${API_PORT}`. Never hardcode port 3001 — it may differ per installation.
 
+## API Routing Rule
+
+- **Device control** (turn_on, turn_off, set_temperature, etc.) → **SmartHub API** (`http://localhost:${API_PORT}/api/services/...`). No auth header needed.
+- **Config operations** (automations, integrations, area registry, config entries) → **HA Direct API** (`http://localhost:8123/api/...`). Requires `Authorization: Bearer $HA_TOKEN` header.
+
+Always read `API_PORT` from `.env` before making SmartHub API calls. Never hardcode port 3001.
+
 ## SmartHub API (convenience layer)
 
 Base URL: `http://localhost:${API_PORT}`

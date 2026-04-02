@@ -3,8 +3,8 @@
 ## Device Info
 
 - **Name:** Office Printer
-- **Address:** `ipp://192.168.2.75:631/ipp/print`
-- **Toner:** ~90%
+- **Address:** `ipp://<PRINTER_IP>:631/ipp/print`
+- **Toner:** Check via `lpstat -p office-printer`
 - **Integration:** CUPS (system-level, not HA)
 - **CUPS Queue Name:** `office-printer`
 
@@ -14,7 +14,7 @@ CUPS must be installed and the printer added before printing works.
 
 ```bash
 sudo apt-get install -y cups
-sudo lpadmin -p office-printer -E -v ipp://192.168.2.75:631/ipp/print -m everywhere
+sudo lpadmin -p office-printer -E -v ipp://<PRINTER_IP>:631/ipp/print -m everywhere
 sudo lpoptions -d office-printer
 ```
 
