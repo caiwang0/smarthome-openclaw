@@ -67,12 +67,8 @@ Three manual steps, then OpenClaw guides you through everything else.
 
 ### 1. Install OpenClaw
 
-```bash
-# macOS / Linux
-curl -fsSL https://get.openclaw.dev | sh
-
-# Or with npm
-npm install -g @openclaw/cli
+```powershell
+powershell -c "irm https://openclaw.ai/install.ps1 | iex"
 ```
 
 ### 2. Create a Bot
