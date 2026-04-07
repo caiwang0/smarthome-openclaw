@@ -1,17 +1,19 @@
 # Common — Shared API & Network Reference
 
-> **Before running any command below**, read the API port from `.env`:
+> **Before running any command below**, read both ports from `.env`:
 > ```bash
 > API_PORT=$(grep API_PORT .env | cut -d= -f2)
+> HA_URL=$(grep HA_URL .env | cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}
+> HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
 > ```
-> All curl examples below use `${API_PORT}`. Never hardcode port 3001 — it may differ per installation.
+> All curl examples use `${API_PORT}` and `${HA_URL}`. Never hardcode port 3001 or 8123 — they may differ per installation.
 
 ## API Routing Rule
 
 - **Device control** (turn_on, turn_off, set_temperature, etc.) → **SmartHub API** (`http://localhost:${API_PORT}/api/services/...`). No auth header needed.
-- **Config operations** (automations, integrations, area registry, config entries) → **HA Direct API** (`http://localhost:8123/api/...`). Requires `Authorization: Bearer $HA_TOKEN` header.
+- **Config operations** (automations, integrations, area registry, config entries) → **HA Direct API** (`${HA_URL}/api/...`). Requires `Authorization: Bearer $HA_TOKEN` header.
 
-Always read `API_PORT` from `.env` before making SmartHub API calls. Never hardcode port 3001.
+Always read `API_PORT` and `HA_URL` from `.env` before making any API calls. Never hardcode port 3001 or 8123.
 
 ## SmartHub API (convenience layer)
 
@@ -53,16 +55,17 @@ curl -s http://localhost:${API_PORT}/api/areas | jq '.areas'
 
 ## Home Assistant Direct API
 
-Base URL: `http://localhost:8123`
+Base URL: `${HA_URL}` (read from `.env`; default `http://localhost:8123`)
 
-**Authentication header (required for all HA calls):**
+**Always set these before any HA API call:**
 ```bash
+HA_URL=$(grep HA_URL .env | cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}
 HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
 ```
 
 ### Device registry — move device to area
 ```bash
-curl -s -X POST http://localhost:8123/api/config/device_registry \
+curl -s -X POST ${HA_URL}/api/config/device_registry \
   -H "Authorization: Bearer $HA_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"device_id": "<device_id>", "area_id": "<area_id>"}'
@@ -71,17 +74,17 @@ curl -s -X POST http://localhost:8123/api/config/device_registry \
 ### Area registry — create/list/delete areas
 ```bash
 # List areas
-curl -s http://localhost:8123/api/config/area_registry/list \
+curl -s ${HA_URL}/api/config/area_registry/list \
   -H "Authorization: Bearer $HA_TOKEN"
 
 # Create area
-curl -s -X POST http://localhost:8123/api/config/area_registry/create \
+curl -s -X POST ${HA_URL}/api/config/area_registry/create \
   -H "Authorization: Bearer $HA_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name": "Office"}'
 
 # Delete area
-curl -s -X POST http://localhost:8123/api/config/area_registry/delete \
+curl -s -X POST ${HA_URL}/api/config/area_registry/delete \
   -H "Authorization: Bearer $HA_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"area_id": "<area_id>"}'
@@ -89,19 +92,19 @@ curl -s -X POST http://localhost:8123/api/config/area_registry/delete \
 
 ### Config entries — list installed integrations
 ```bash
-curl -s http://localhost:8123/api/config/config_entries/entry \
+curl -s ${HA_URL}/api/config/config_entries/entry \
   -H "Authorization: Bearer $HA_TOKEN" | jq '.[] | {domain, title, state}'
 ```
 
 ### Config entries — remove an integration
 ```bash
-curl -s -X DELETE http://localhost:8123/api/config/config_entries/entry/<entry_id> \
+curl -s -X DELETE ${HA_URL}/api/config/config_entries/entry/<entry_id> \
   -H "Authorization: Bearer $HA_TOKEN"
 ```
 
 ### Config entries — reload an integration
 ```bash
-curl -s -X POST http://localhost:8123/api/config/config_entries/entry/<entry_id>/reload \
+curl -s -X POST ${HA_URL}/api/config/config_entries/entry/<entry_id>/reload \
   -H "Authorization: Bearer $HA_TOKEN"
 ```
 
@@ -109,7 +112,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/entry/<entry_id>
 
 ## Network Info
 
-- Home Assistant: `http://localhost:8123`
+- Home Assistant: `${HA_URL}` (read from `.env`; default `http://localhost:8123`)
 - SmartHub API: `http://localhost:${API_PORT}` (read `API_PORT` from `.env`; default 3001)
 - For browser access from other devices on the LAN, use the Pi's IP address (run `hostname -I | awk '{print $1}'` to find it)
-- `homeassistant.local` does NOT resolve on most LAN devices. Use the Pi's IP instead when giving URLs to the user.
+- mDNS: `homeassistant.local` resolves to the Pi's IP on the LAN. If HA is on a non-default port, tell users `homeassistant.local:<port>`.

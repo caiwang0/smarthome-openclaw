@@ -73,37 +73,57 @@ The token will be filled in later (Step 6). For now, `.env` just needs to exist 
 
 ## Step 3b: Check for Port Conflicts
 
-Before starting Docker, check if the required ports are already in use:
+Before starting Docker, check if the required ports are already in use and resolve conflicts automatically:
 
 ```bash
-# Check port 8123 (Home Assistant)
-ss -tlnp | grep ':8123 ' && echo "PORT_8123_CONFLICT" || echo "PORT_8123_FREE"
+# Check and resolve HA port (8123)
+if ss -tlnp | grep -q ':8123 '; then
+  # Find a free alternative port
+  for port in 8124 8125 8126 8127 8128; do
+    ss -tlnp | grep -q ":${port} " || { HA_PORT=$port; break; }
+  done
 
-# Check the API port from .env (default 3001)
+  # Write server_port to ha-config/configuration.yaml before HA starts
+  mkdir -p ha-config
+  if [ ! -s ha-config/configuration.yaml ]; then
+    # Fresh install — safe to write directly
+    printf "http:\n  server_port: %s\n" "${HA_PORT}" > ha-config/configuration.yaml
+  else
+    # Existing config — too risky to modify automatically
+    echo "WARNING: ha-config/configuration.yaml already exists."
+    echo "Add this manually under the http: section, then continue:"
+    echo "  server_port: ${HA_PORT}"
+    echo "Press Enter when done."
+    read -r
+  fi
+
+  # Update HA_URL in .env
+  sed -i "s|HA_URL=.*|HA_URL=http://localhost:${HA_PORT}|" .env
+
+  echo "Port 8123 was in use. HA will run on port ${HA_PORT}."
+  echo "Note: Xiaomi OAuth requires HA on port 8123. If you use Xiaomi, free port 8123 first."
+else
+  HA_PORT=8123
+  echo "Port 8123 is free."
+fi
+
+# Check and resolve API port
 API_PORT=$(grep API_PORT .env | cut -d= -f2)
 API_PORT=${API_PORT:-3001}
-ss -tlnp | grep ":${API_PORT} " && echo "PORT_${API_PORT}_CONFLICT" || echo "PORT_${API_PORT}_FREE"
+if ss -tlnp | grep -q ":${API_PORT} "; then
+  for port in $(seq $((API_PORT + 1)) $((API_PORT + 10))); do
+    ss -tlnp | grep -q ":${port} " || { API_PORT=$port; break; }
+  done
+  sed -i "s|API_PORT=.*|API_PORT=${API_PORT}|" .env
+  echo "API port conflict resolved: using port ${API_PORT}."
+fi
 ```
 
-**If port 8123 is in use:**
-- Tell the user: "Port 8123 is already in use by another service. You'll need to stop it first."
-- Help them identify what's using it: `ss -tlnp | grep ':8123 '`
-- Do NOT proceed until 8123 is free — HA requires this port.
-
-**If the API port is in use:**
-- Pick the next available port automatically:
+**Important:** If a non-default port was assigned, update all skill files that reference the old port:
 ```bash
-# Find a free port starting from 3001
-for port in 3001 3002 3099 3100 3200; do
-  ss -tlnp | grep -q ":${port} " || { echo "$port"; break; }
-done
+grep -rn 'localhost:3001' tools/ CLAUDE.md TOOLS.md
+# Replace any matches with localhost:${API_PORT}
 ```
-- Update `.env` with the free port:
-```bash
-sed -i "s|API_PORT=.*|API_PORT=<free_port>|" .env
-```
-- Tell the user: "Port <original> was in use, so I've set the API to run on port <free_port> instead."
-- **Important:** If you assigned a non-default port, update all functional skill files that reference the API port. Run `grep -rn 'localhost:3001' tools/ CLAUDE.md TOOLS.md` and replace any remaining `localhost:3001` with `localhost:${API_PORT}` using the port you just assigned.
 
 ---
 
@@ -116,14 +136,18 @@ docker compose up -d
 Wait for HA to boot (usually 30-60 seconds on first run):
 
 ```bash
-# Poll until HA responds
+# Read the actual HA port from .env (set in Step 3b)
+HA_URL=$(grep HA_URL .env | cut -d= -f2)
+HA_URL=${HA_URL:-http://localhost:8123}
+
+# Poll until HA responds on its actual port
 for i in $(seq 1 30); do
-  curl -s http://localhost:8123/api/ 2>/dev/null && break
+  curl -s ${HA_URL}/api/ 2>/dev/null | grep -q "API running" && break
   sleep 2
 done
 ```
 
-- If HA responds with `{"message": "API running."}` → move to Step 5
+- If HA responds with `{"message": "API running."}` → run Step 4b, then move to Step 5
 - If it doesn't respond after 60 seconds → check logs:
   ```bash
   docker logs homeassistant --tail 50
@@ -134,7 +158,7 @@ done
 
 ## Step 4b: Set Up mDNS for homeassistant.local
 
-So that `homeassistant.local` resolves to this Pi on the local network (needed for OAuth redirects during integration setup), set up an mDNS broadcast:
+> **Only run this after HA is confirmed running (Step 4 polling succeeded).** mDNS broadcasts the Pi's IP so other devices on the LAN can reach HA — but only once HA is actually up.
 
 ```bash
 # Install avahi-utils if not already installed
@@ -173,7 +197,14 @@ Verify it's working:
 avahi-resolve -n homeassistant.local
 ```
 
-Should show the Pi's IP. This means any device on the same network can now reach Home Assistant at `http://homeassistant.local:8123`.
+Should show the Pi's IP.
+
+```bash
+# Get the HA port for user-facing messages
+HA_PORT=$(grep HA_URL .env | grep -oP ':\K[0-9]+' || echo "8123")
+```
+
+Any device on the same network can now reach Home Assistant at `http://homeassistant.local:${HA_PORT}`.
 
 > Do NOT tell the user about this step — just run it silently. It's infrastructure setup.
 
@@ -181,16 +212,17 @@ Should show the Pi's IP. This means any device on the same network can now reach
 
 ## Step 5: HA Onboarding (User Does This in Browser)
 
-First, get the Pi's IP address so the user can open HA in their browser:
+First, get the Pi's IP and HA port:
 
 ```bash
-hostname -I | awk '{print $1}'
+PI_IP=$(hostname -I | awk '{print $1}')
+HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
 ```
 
-Tell the user, using the IP you just obtained:
+Tell the user, using the values you just obtained:
 
 > Home Assistant is running! Open this in your browser:
-> **http://<PI_IP>:8123**
+> **http://<PI_IP>:<HA_PORT>**
 >
 > You'll see the onboarding wizard. Follow these steps:
 > 1. **Create your admin account** — pick a name, username, and password
@@ -299,7 +331,7 @@ Common issues:
 ### API can't connect to HA
 - Check `.env` has the correct token (no quotes, no extra spaces)
 - Check HA is running: `docker ps`
-- Check HA is accessible: `curl -s http://localhost:8123/api/ -H "Authorization: Bearer <token>"`
+- Check HA is accessible: `HA_URL=$(grep HA_URL .env | cut -d= -f2); curl -s ${HA_URL:-http://localhost:8123}/api/ -H "Authorization: Bearer <token>"`
 
 ### Token rejected (401)
 - The token was copied incorrectly — have the user create a new one

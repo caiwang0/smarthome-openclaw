@@ -61,8 +61,9 @@ docker exec homeassistant bash -c 'wget -O - https://get.hacs.xyz | bash -'
 # Restart HA to load HACS
 curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
   -H "Authorization: Bearer $HA_TOKEN"
-# Wait for HA to come back
-for i in $(seq 1 30); do curl -s http://localhost:8123/api/ 2>/dev/null && break; sleep 2; done
+# Wait for HA to come back on its actual port
+HA_URL=$(grep HA_URL .env | cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}
+for i in $(seq 1 30); do curl -s ${HA_URL}/api/ 2>/dev/null && break; sleep 2; done
 ```
 
 **Step 2: Activate HACS (GitHub authorization) — handle silently**
@@ -92,7 +93,8 @@ cd "${HA_CONFIG}/custom_components" 2>/dev/null || mkdir -p "${HA_CONFIG}/custom
 # Restart HA to load the new integration
 curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
   -H "Authorization: Bearer $HA_TOKEN"
-for i in $(seq 1 30); do curl -s http://localhost:8123/api/ 2>/dev/null && break; sleep 2; done
+HA_URL=$(grep HA_URL .env | cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}
+for i in $(seq 1 30); do curl -s ${HA_URL}/api/ 2>/dev/null && break; sleep 2; done
 ```
 
 **Step 4: Verify the integration is now available**
@@ -110,12 +112,13 @@ curl -s http://localhost:8123/api/config/config_entries/flow_handlers \
 Before responding, run:
 ```bash
 PI_IP=$(hostname -I | awk '{print $1}')
-echo "http://${PI_IP}:8123/config/integrations/dashboard"
+HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
+echo "http://${PI_IP}:${HA_PORT}/config/integrations/dashboard"
 ```
 
-Then your response MUST start with EXACTLY this structure (fill in the actual IP and integration name):
+Then your response MUST start with EXACTLY this structure (fill in the actual IP, port, and integration name):
 
-> **Option 1 — Do it yourself:** [Open HA Integrations](http://<PI_IP>:8123/config/integrations/dashboard) → click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
+> **Option 1 — Do it yourself:** [Open HA Integrations](http://<PI_IP>:<HA_PORT>/config/integrations/dashboard) → click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
 >
 > **Option 2 — I'll guide you step by step:** (details below)
 

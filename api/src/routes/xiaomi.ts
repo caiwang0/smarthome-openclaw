@@ -73,8 +73,11 @@ export const xiaomiRoutes = new Elysia()
       }
 
       // Step 2: Submit auth_config with the chosen cloud server
-      // Note: oauth_redirect_url MUST be "http://homeassistant.local:8123" — the Xiaomi integration
-      // validates this exact value. Users need homeassistant.local in their hosts file (see known-issues.md).
+      // Note: oauth_redirect_url MUST be "http://homeassistant.local:8123" — the Xiaomi HA integration
+      // validates this exact string on the HA side and rejects any other value, including different ports.
+      // This means Xiaomi OAuth only works when HA is running on port 8123.
+      // If HA was assigned a different port due to a conflict (setup.md Step 3b), Xiaomi OAuth will fail.
+      // Users in that situation must free port 8123 and restart HA on it before adding Xiaomi.
       console.log(`[OPENCLAW XIAOMI] Step 2: Submitting auth_config (server=${cloud_server})...`);
       const oauthStep = await haFetch(
         `/api/config/config_entries/flow/${flowId}`,

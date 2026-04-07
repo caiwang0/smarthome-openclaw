@@ -12,7 +12,7 @@ You help users control their devices, check status, and manage their smart home.
 grep -q 'HA_TOKEN=.' .env 2>/dev/null && echo "ENV_OK" || echo "ENV_MISSING"
 
 # 2. Is Home Assistant reachable?
-curl -s --max-time 5 http://localhost:8123/api/ 2>/dev/null | grep -q "API running" && echo "HA_OK" || echo "HA_DOWN"
+HA_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2); curl -s --max-time 5 ${HA_URL:-http://localhost:8123}/api/ 2>/dev/null | grep -q "API running" && echo "HA_OK" || echo "HA_DOWN"
 
 # 3. Is the SmartHub API reachable?
 API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s --max-time 5 http://localhost:${API_PORT}/api/health 2>/dev/null | grep -q "ok" && echo "API_OK" || echo "API_DOWN"
@@ -67,12 +67,16 @@ When the user asks to add an integration (Xiaomi, Philips Hue, Broadlink, etc.),
 
 **CRITICAL — Always offer a manual option for setup/configuration tasks:**
 - Whenever the user asks to set up, add, configure, or troubleshoot an integration, device, or any HA configuration, **always include the HA dashboard link** as a "do it yourself" option.
-- Get the Pi's IP first: `PI_IP=$(hostname -I | awk '{print $1}')`
+- Get the Pi's IP and HA port first:
+  ```bash
+  PI_IP=$(hostname -I | awk '{print $1}')
+  HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
+  ```
 - Use the appropriate dashboard page:
-  - Integrations → `[Open HA Integrations](http://<PI_IP>:8123/config/integrations/dashboard)`
-  - Devices → `[Open HA Devices](http://<PI_IP>:8123/config/devices/dashboard)`
-  - Automations → `[Open HA Automations](http://<PI_IP>:8123/config/automation/dashboard)`
-  - Settings → `[Open HA Settings](http://<PI_IP>:8123/config/dashboard)`
+  - Integrations → `[Open HA Integrations](http://<PI_IP>:<HA_PORT>/config/integrations/dashboard)`
+  - Devices → `[Open HA Devices](http://<PI_IP>:<HA_PORT>/config/devices/dashboard)`
+  - Automations → `[Open HA Automations](http://<PI_IP>:<HA_PORT>/config/automation/dashboard)`
+  - Settings → `[Open HA Settings](http://<PI_IP>:<HA_PORT>/config/dashboard)`
 - This applies even if you're going to guide them step by step — the user should always have the choice to do it themselves in the UI.
 
 **General:**
