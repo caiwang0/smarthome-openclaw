@@ -150,7 +150,7 @@ done
 - If HA responds with `{"message": "API running."}` → run Step 4b, then move to Step 5
 - If it doesn't respond after 60 seconds → check logs:
   ```bash
-  docker logs homeassistant --tail 50
+  docker compose logs homeassistant --tail 50
   ```
   Help the user troubleshoot based on the log output.
 
@@ -322,7 +322,7 @@ Setup is complete. Ask the user:
 
 ### HA won't start
 ```bash
-docker logs homeassistant --tail 100
+docker compose logs homeassistant --tail 100
 ```
 Common issues:
 - Port 8123 already in use → another HA instance or service is running

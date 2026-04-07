@@ -4,10 +4,10 @@
 
 | HTTP Status | Meaning | Action |
 |-------------|---------|--------|
-| **503** | HA not connected | Check `docker ps`. If homeassistant is not running: `docker compose up -d`. If running, check logs: `docker logs homeassistant --tail 20` |
+| **503** | HA not connected | Check `docker ps`. If homeassistant is not running: `docker compose up -d`. If running, check logs: `docker compose logs homeassistant --tail 20` |
 | **404** | Entity not found | Entity ID is wrong. Look up correct ID via `/api/devices`. Never guess entity IDs. |
 | **400** | Service not found | Check domain/service spelling. Common services: `turn_on`, `turn_off`, `toggle` (switch only). See `_services.md` for full list. |
-| **502** | HA service call failed | Check `docker logs homeassistant --tail 20` for details. May be a transient error — retry once. |
+| **502** | HA service call failed | Check `docker compose logs homeassistant --tail 20` for details. May be a transient error — retry once. |
 
 ## Entity States
 
@@ -20,7 +20,7 @@
 
 | Symptom | Likely Cause | Action |
 |---------|-------------|--------|
-| All devices unavailable | HA restarted or integration crashed | Check `docker logs homeassistant --tail 50`. Try reloading the integration: `HA_URL=$(grep HA_URL .env \| cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}; curl -s -X POST ${HA_URL}/api/config/config_entries/entry/<entry_id>/reload -H "Authorization: Bearer $HA_TOKEN"` |
+| All devices unavailable | HA restarted or integration crashed | Check `docker compose logs homeassistant --tail 50`. Try reloading the integration: `HA_URL=$(grep HA_URL .env \| cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}; curl -s -X POST ${HA_URL}/api/config/config_entries/entry/<entry_id>/reload -H "Authorization: Bearer $HA_TOKEN"` |
 | API timeout | Network issue or HA overloaded | Verify HA is running: `HA_URL=$(grep HA_URL .env \| cut -d= -f2); curl -s ${HA_URL:-http://localhost:8123}/api/`. Check `.env` has correct `HA_URL`. |
 | Token rejected (401) | Token expired or invalid | Have user create a new long-lived access token in HA UI and update `.env`. |
 | Port conflict | Another service using the port | Run `ss -tlnp \| grep ':<port> '` to find the conflict. See `tools/setup.md` Step 3b for resolution. |

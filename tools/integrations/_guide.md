@@ -56,7 +56,7 @@ else:
 **Step 1: Install HACS into HA**
 ```bash
 # HA config is often owned by root (Docker). Install via docker exec:
-docker exec homeassistant bash -c 'wget -O /tmp/hacs-install.sh https://get.hacs.xyz && bash /tmp/hacs-install.sh'
+docker compose exec homeassistant bash -c 'wget -O /tmp/hacs-install.sh https://get.hacs.xyz && bash /tmp/hacs-install.sh'
 
 # Restart HA to load HACS
 curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
@@ -83,7 +83,7 @@ HACS activation requires a GitHub device code flow. The config flow will return 
 **Step 3: Install the custom integration via HACS**
 ```bash
 # Find the HA config directory
-HA_CONFIG=$(docker inspect homeassistant --format='{{range .Mounts}}{{if eq .Destination "/config"}}{{.Source}}{{end}}{{end}}')
+HA_CONFIG="$(pwd)/ha-config"
 
 # Download the integration directly (faster than HACS API)
 # Example for xiaomi_home:
