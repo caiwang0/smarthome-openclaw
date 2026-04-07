@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # SmartHub for OpenClaw — One-command installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh
 
 REPO_URL="https://github.com/caiwang0/smarthome-openclaw.git"
 REPO_DIR="smarthome-openclaw"

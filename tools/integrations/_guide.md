@@ -56,7 +56,7 @@ else:
 **Step 1: Install HACS into HA**
 ```bash
 # HA config is often owned by root (Docker). Install via docker exec:
-docker exec homeassistant bash -c 'wget -O - https://get.hacs.xyz | bash -'
+docker exec homeassistant bash -c 'wget -O /tmp/hacs-install.sh https://get.hacs.xyz && bash /tmp/hacs-install.sh'
 
 # Restart HA to load HACS
 curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \

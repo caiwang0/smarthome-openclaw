@@ -55,7 +55,7 @@ Say "I'm leaving for work" and OpenClaw turns off lights, sets the AC to eco, an
 
 **Already have OpenClaw running?** Just tell your bot:
 
-> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh | bash`
+> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh`
 
 Then say: **"Help me set up SmartHub"** — OpenClaw handles the rest.
 
