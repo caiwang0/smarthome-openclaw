@@ -90,6 +90,65 @@ with open(config_path, 'w') as f:
 print('  Added:', ', '.join(our_paths))
 "
 
+# --- Create .env and resolve port conflicts ---
+cd "$TARGET"
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "Created .env from .env.example."
+fi
+
+# Check if port 8123 is already in use
+if ss -tlnp 2>/dev/null | grep -q ':8123 '; then
+  echo "Port 8123 is in use. Finding a free port..."
+  HA_PORT=""
+  for port in 8124 8125 8126 8127 8128; do
+    if ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+      HA_PORT=$port
+      break
+    fi
+  done
+
+  if [ -z "$HA_PORT" ]; then
+    echo "WARNING: Could not find a free port in 8124-8128. Defaulting to 8123 (may conflict)."
+    HA_PORT=8123
+  else
+    echo "Assigning HA to port ${HA_PORT}."
+
+    # Write server_port to ha-config/configuration.yaml (only if fresh install)
+    mkdir -p ha-config
+    if [ ! -s ha-config/configuration.yaml ]; then
+      printf "http:\n  server_port: %s\n" "${HA_PORT}" > ha-config/configuration.yaml
+      echo "Wrote server_port: ${HA_PORT} to ha-config/configuration.yaml."
+    else
+      echo "WARNING: ha-config/configuration.yaml already exists."
+      echo "Add this manually under the http: section before starting HA:"
+      echo "  server_port: ${HA_PORT}"
+    fi
+
+    # Update HA_URL in .env
+    sed -i "s|HA_URL=.*|HA_URL=http://localhost:${HA_PORT}|" .env
+    echo "Updated HA_URL to http://localhost:${HA_PORT} in .env."
+  fi
+else
+  echo "Port 8123 is free."
+fi
+
+# Check API port conflict
+API_PORT=$(grep API_PORT .env | cut -d= -f2)
+API_PORT=${API_PORT:-3001}
+if ss -tlnp 2>/dev/null | grep -q ":${API_PORT} "; then
+  for port in $(seq $((API_PORT + 1)) $((API_PORT + 10))); do
+    if ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+      sed -i "s|API_PORT=.*|API_PORT=${port}|" .env
+      echo "API port conflict: reassigned to ${port}."
+      break
+    fi
+  done
+fi
+
+cd - > /dev/null
+
 # --- Install npm dependencies for the SmartHub API ---
 if [ -f "$TARGET/api/package.json" ]; then
   echo "Installing API dependencies..."
