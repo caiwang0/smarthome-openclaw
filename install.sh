@@ -155,19 +155,9 @@ if [ -f "$TARGET/api/package.json" ]; then
   cd "$TARGET/api" && npm install --silent 2>/dev/null || true
 fi
 
-# --- Restart gateway if running ---
-GATEWAY_PID=$(pgrep -f "openclaw-gateway" 2>/dev/null | head -1 || true)
-
-if [ -n "$GATEWAY_PID" ]; then
-  echo "Restarting OpenClaw gateway (PID $GATEWAY_PID)..."
-  kill "$GATEWAY_PID" 2>/dev/null || true
-  sleep 2
-  nohup "$(which openclaw 2>/dev/null || echo "$HOME/.npm-global/bin/openclaw")" gateway > /tmp/openclaw-gateway.log 2>&1 &
-  sleep 3
-  echo "Gateway restarted."
-else
-  echo "No running gateway found. Start it with: openclaw gateway"
-fi
+# NOTE: Do NOT restart the gateway here. The current session is running
+# through this gateway — killing it aborts the bot mid-conversation.
+# The bootstrap-extra-files hook takes effect on the NEXT new session.
 
 echo ""
 echo "============================================"
