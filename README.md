@@ -67,6 +67,14 @@ Three manual steps, then OpenClaw guides you through everything else.
 
 ### 1. Install OpenClaw
 
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta
+```
+
+**Windows:**
+
 ```powershell
 powershell -c "irm https://openclaw.ai/install.ps1 | iex"
 ```
