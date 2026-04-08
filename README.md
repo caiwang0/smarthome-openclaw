@@ -1,6 +1,6 @@
 # SmartHub — AI-Powered Smart Home
 
-Control your Home Assistant with natural language through Discord, Teams, or Feishu. Powered by OpenClaw.
+Control your Home Assistant with natural language through any messaging app supported by OpenClaw (Discord, Telegram, WhatsApp, Feishu, and more). Powered by OpenClaw.
 
 ## How It Works
 
@@ -11,8 +11,8 @@ Control your Home Assistant with natural language through Discord, Teams, or Fei
                                      │
                                      ▼
                         ┌────────────────────────┐
-                        │   Discord / Teams /    │
-                        │       Feishu           │
+                        │   Your Messaging App   │
+                        │ (Discord, Telegram, …) │
                         └───────────┬────────────┘
                                     │
                                     ▼
@@ -79,102 +79,11 @@ curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta
 powershell -c "irm https://openclaw.ai/install.ps1 | iex"
 ```
 
-### 2. Create a Bot
+### 2. Set Up OpenClaw with a Messaging App
 
-You need a bot token so OpenClaw can send and receive messages.
+Follow the [OpenClaw Getting Started guide](https://docs.openclaw.ai/start/getting-started) to connect a bot to your messaging app (Discord, Telegram, WhatsApp, Feishu, etc.) and point it at this repo.
 
-<details>
-<summary><strong>Discord</strong></summary>
-
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications) → "New Application"
-2. **Bot** tab → "Reset Token" → copy the token
-3. Enable **Message Content Intent** under Privileged Gateway Intents
-4. **OAuth2** → URL Generator → scope: `bot` → permissions: Send Messages, Read Message History, Add Reactions
-5. Open the generated URL to invite the bot to your server
-6. Note your **Guild ID** and **Channel ID** (enable Developer Mode in Discord settings, then right-click to copy)
-
-</details>
-
-<details>
-<summary><strong>Teams</strong></summary>
-
-See [OpenClaw Teams Setup Guide](https://docs.openclaw.dev/channels/teams)
-
-</details>
-
-<details>
-<summary><strong>Feishu</strong></summary>
-
-See [OpenClaw Feishu Setup Guide](https://docs.openclaw.dev/channels/feishu)
-
-</details>
-
-### 3. Configure and Start OpenClaw
-
-Create the config directory and gateway config:
-
-```bash
-mkdir -p ~/.openclaw-smarthub
-```
-
-Create `~/.openclaw-smarthub/openclaw.json`:
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": { "primary": "anthropic/claude-sonnet-4-6" },
-      "workspace": "/path/to/home-assistant",
-      "timeoutSeconds": 600,
-      "sandbox": { "mode": "off" }
-    }
-  },
-  "tools": {
-    "profile": "coding",
-    "exec": { "security": "full", "ask": "off" }
-  },
-  "channels": {
-    "discord": {
-      "enabled": true,
-      "token": "YOUR_DISCORD_BOT_TOKEN",
-      "groupPolicy": "open",
-      "allowFrom": ["YOUR_DISCORD_USER_ID"],
-      "guilds": {
-        "YOUR_GUILD_ID": {
-          "requireMention": false,
-          "channels": { "YOUR_CHANNEL_ID": { "allow": true } }
-        }
-      }
-    }
-  },
-  "gateway": { "port": 18790, "mode": "local", "bind": "loopback" },
-  "plugins": {
-    "entries": {
-      "acpx": {
-        "enabled": true,
-        "config": {
-          "cwd": "/path/to/home-assistant",
-          "permissionMode": "approve-all",
-          "nonInteractivePermissions": "deny",
-          "timeoutSeconds": 600
-        }
-      }
-    }
-  }
-}
-```
-
-Replace the placeholders:
-
-| Placeholder | Where to find it |
-|---|---|
-| `YOUR_DISCORD_BOT_TOKEN` | From step 2 |
-| `YOUR_DISCORD_USER_ID` | Right-click your name in Discord → Copy User ID |
-| `YOUR_GUILD_ID` | Right-click your server → Copy Server ID |
-| `YOUR_CHANNEL_ID` | Right-click the channel → Copy Channel ID |
-| `/path/to/home-assistant` | Absolute path to this cloned repo (both places) |
-
-Once the bot comes online in your Discord channel, say: **"Help me set up SmartHub"**
+Once the bot comes online, say: **"Help me set up SmartHub"**
 
 ---
 
@@ -290,15 +199,14 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 
 - **OpenClaw CLI** — the AI agent framework
 - **Docker** — runs Home Assistant and the SmartHub API
-- **A messaging platform** — Discord, Teams, or Feishu
+- **A messaging platform** — Discord, Telegram, WhatsApp, Feishu, or any platform supported by OpenClaw
 - **Claude API access** — OpenClaw uses Claude as its backend
 
 ## Troubleshooting
 
-**Bot doesn't respond in Discord:**
-- Check the bot is online (green dot) in the member list
-- Verify `requireMention` is `false` in `openclaw.json`
-- Check `allowFrom` includes your Discord user ID
+**Bot doesn't respond:**
+- Check the bot is online in your messaging app
+- Verify your channel config in `openclaw.json` is correct — see the [OpenClaw Getting Started guide](https://docs.openclaw.ai/start/getting-started)
 - Check logs: `openclaw gateway logs --profile smarthub`
 
 **HA is unreachable:**
