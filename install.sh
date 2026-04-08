@@ -118,7 +118,7 @@ if ss -tlnp 2>/dev/null | grep -q ':8123 '; then
     # Write server_port to ha-config/configuration.yaml (only if fresh install)
     mkdir -p ha-config
     if [ ! -s ha-config/configuration.yaml ]; then
-      printf "http:\n  server_port: %s\n" "${HA_PORT}" > ha-config/configuration.yaml
+      printf "default_config:\n\nhttp:\n  server_port: %s\n" "${HA_PORT}" > ha-config/configuration.yaml
       echo "Wrote server_port: ${HA_PORT} to ha-config/configuration.yaml."
     else
       echo "WARNING: ha-config/configuration.yaml already exists."
