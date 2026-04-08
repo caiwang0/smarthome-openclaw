@@ -174,12 +174,6 @@ Replace the placeholders:
 | `YOUR_CHANNEL_ID` | Right-click the channel → Copy Channel ID |
 | `/path/to/home-assistant` | Absolute path to this cloned repo (both places) |
 
-Start the gateway:
-
-```bash
-openclaw gateway start --profile smarthub
-```
-
 Once the bot comes online in your Discord channel, say: **"Help me set up SmartHub"**
 
 ---
@@ -309,12 +303,12 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 
 **HA is unreachable:**
 - Run `docker ps` — is `homeassistant` running?
-- Test: `curl http://localhost:8123/api/` — should return `{"message": "API running."}`
+- Test: `curl http://localhost:8123/api/ -H "Authorization: Bearer YOUR_TOKEN"` — should return `{"message": "API running."}` (the `/api/` endpoint requires authentication)
 - Check `.env` has the correct token
 
 **OAuth redirect fails (Xiaomi, Google, etc.):**
 
-The OAuth login redirects to `homeassistant.local:8123`. This works via mDNS if your computer is on the same network. If it doesn't resolve, add the Pi's IP to your hosts file — OpenClaw will detect the IP and give you the exact command.
+The OAuth login redirects to `homeassistant.local:8123` (or whichever port HA is running on — check `HA_URL` in `.env`). This works via mDNS if your computer is on the same network. If it doesn't resolve, add the Pi's IP to your hosts file — OpenClaw will detect the IP and give you the exact command.
 
 *Windows* — run Command Prompt as administrator:
 
