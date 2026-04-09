@@ -6,25 +6,17 @@ Every integration has its own setup flow with different steps and options. **Do 
 
 **Before doing ANYTHING else**, check whether the integration domain is already installed in HA:
 
-```bash
-HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
+Use `ha_config_entries_get` to check if the integration domain is already installed:
 
-# Check if integration domain is available
-curl -s http://localhost:8123/api/config/config_entries/flow_handlers \
-  -H "Authorization: Bearer $HA_TOKEN" | python3 -c "
-import json, sys
-handlers = json.load(sys.stdin)
-target = '<integration_domain>'
-if target in handlers:
-    print(f'AVAILABLE: {target} is a built-in or already-installed integration')
-else:
-    print(f'NOT_AVAILABLE: {target} is not installed — likely needs HACS')
-"
 ```
+Tool: ha_config_entries_get
+```
+
+Check if the target domain appears in the results. If not, the integration likely needs HACS.
 
 **If NOT_AVAILABLE:**
 1. The integration is probably a **custom integration** that requires HACS
-2. Check if HACS is installed: `curl -s http://localhost:8123/api/config/config_entries/flow_handlers -H "Authorization: Bearer $HA_TOKEN" | grep -q hacs && echo "HACS_OK" || echo "HACS_MISSING"`
+2. Check if HACS is installed: use `ha_hacs_search` — if the tool is not available, HACS is not installed.
 3. If HACS is missing, install it first (see HACS setup below)
 4. If HACS is installed, install the custom integration through HACS, then restart HA
 5. After restart, re-check that the integration domain is now available before starting the config flow
@@ -59,20 +51,20 @@ else:
 docker compose exec homeassistant bash -c 'wget -O /tmp/hacs-install.sh https://get.hacs.xyz && bash /tmp/hacs-install.sh'
 
 # Restart HA to load HACS
-curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
-  -H "Authorization: Bearer $HA_TOKEN"
-# Wait for HA to come back on its actual port
-HA_URL=$(grep HA_URL .env | cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}
-for i in $(seq 1 30); do curl -s ${HA_URL}/api/ 2>/dev/null && break; sleep 2; done
 ```
+Restart HA:
+```
+Tool: ha_call_service
+  domain: "homeassistant"
+  service: "restart"
+```
+Then wait for HA API to come back: `for i in $(seq 1 30); do curl -s ${HA_URL}/api/ 2>/dev/null && break; sleep 2; done`
 
 **Step 2: Activate HACS (GitHub authorization) — handle silently**
-```bash
-# Start HACS config flow
-curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"handler": "hacs"}'
+Start the HACS config flow:
+```
+Tool: ha_config_entries_flow
+  handler: "hacs"
 ```
 HACS activation requires a GitHub device code flow. The config flow will return a step with a GitHub URL and a user code. **Complete this yourself:**
 - Extract the GitHub device code URL and the code from the response
@@ -91,17 +83,21 @@ cd "${HA_CONFIG}/custom_components" 2>/dev/null || mkdir -p "${HA_CONFIG}/custom
 # Use the integration's GitHub releases or HACS download endpoint
 
 # Restart HA to load the new integration
-curl -s -X POST http://localhost:8123/api/services/homeassistant/restart \
-  -H "Authorization: Bearer $HA_TOKEN"
-HA_URL=$(grep HA_URL .env | cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}
-for i in $(seq 1 30); do curl -s ${HA_URL}/api/ 2>/dev/null && break; sleep 2; done
 ```
+Restart HA:
+```
+Tool: ha_call_service
+  domain: "homeassistant"
+  service: "restart"
+```
+Then wait for HA API to come back: `for i in $(seq 1 30); do curl -s ${HA_URL}/api/ 2>/dev/null && break; sleep 2; done`
 
 **Step 4: Verify the integration is now available**
-```bash
-curl -s http://localhost:8123/api/config/config_entries/flow_handlers \
-  -H "Authorization: Bearer $HA_TOKEN" | grep -q '<integration_domain>' && echo "READY" || echo "STILL_MISSING"
+Verify the integration is now available:
 ```
+Tool: ha_config_entries_get
+```
+Check that the target domain appears in the results.
 
 **Only after the integration is confirmed READY**, proceed to the user-facing integration setup (show dashboard link + guided flow).
 
@@ -111,14 +107,13 @@ curl -s http://localhost:8123/api/config/config_entries/flow_handlers \
 
 Before responding, run:
 ```bash
-PI_IP=$(hostname -I | awk '{print $1}')
 HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
-echo "http://${PI_IP}:${HA_PORT}/config/integrations/dashboard"
+echo "http://homeassistant.local:${HA_PORT}/config/integrations/dashboard"
 ```
 
 Then your response MUST start with EXACTLY this structure (fill in the actual IP, port, and integration name):
 
-> **Option 1 — Do it yourself:** [Open HA Integrations](http://<PI_IP>:<HA_PORT>/config/integrations/dashboard) → click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
+> **Option 1 — Do it yourself:** [Open HA Integrations](http://homeassistant.local:<HA_PORT>/config/integrations/dashboard) → click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
 >
 > **Option 2 — I'll guide you step by step:** (details below)
 
@@ -137,11 +132,9 @@ Then your response MUST start with EXACTLY this structure (fill in the actual IP
 Each step returns a `data_schema` array describing the fields. Each integration has completely different steps. Handle them generically.
 
 **1. Start the flow**
-```bash
-curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"handler": "<integration_name>"}'
+```
+Tool: ha_config_entries_flow
+  handler: "<integration_name>"
 ```
 Replace `<integration_name>` with the integration domain (e.g., `xiaomi_home`, `lg_thinq`, `hue`, `broadlink`).
 
@@ -186,11 +179,10 @@ Which do you choose for each?
 **NEVER fill in a field without asking the user**, even if there's a default. Show the default but let the user confirm or change it.
 
 **3. Submit the user's choices**
-```bash
-curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"field_name": "user_choice", ...}'
+```
+Tool: ha_config_entries_flow
+  flow_id: "<flow_id>"
+  data: {"field_name": "user_choice", ...}
 ```
 
 **4. Handle special step types**
@@ -200,7 +192,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
 | `form` | A step with fields to fill | Read `data_schema`, present to user, submit their answers |
 | `progress` | Waiting for external action (e.g., OAuth login, device pairing) | Check `description_placeholders` for URLs or instructions. If there's an OAuth URL, extract it and send to user. Then poll until the step changes. |
 | `abort` | Flow was cancelled or blocked | Tell user the reason (`response.reason`). If `already_in_progress`, offer to clear stale flows and retry. |
-| `create_entry` | Setup complete | Confirm success. Run `/api/devices` to show what devices were found. |
+| `create_entry` | Setup complete | Confirm success. Use `ha_search_entities` to show what devices were found. |
 
 **5. If a step has an OAuth URL** (common for Xiaomi, Google, etc.)
 - **Before showing any OAuth link**, ensure mDNS is broadcasting `homeassistant.local`. Run this silently — do NOT ask the user:
@@ -241,9 +233,7 @@ curl -s -X POST http://localhost:8123/api/config/config_entries/flow/<flow_id> \
 **6. Repeat steps 2-5 until the flow completes (`type` = `create_entry`)**
 
 **7. After completion, verify**
-```bash
-API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s http://localhost:${API_PORT}/api/devices
-```
+Use `ha_search_entities` to discover new devices from the integration.
 Show the user what new devices were found.
 
 ### Error Handling
@@ -252,11 +242,10 @@ Show the user what new devices were found.
 - **Any error with `errors.base`**: Show the error to the user and ask how to proceed. Don't silently retry.
 
 ### Clearing Stale Flows
-```bash
-# List in-progress flows via WebSocket (or check HA UI: Settings → Devices & Services)
-# Delete a specific flow:
-curl -s -X DELETE http://localhost:8123/api/config/config_entries/flow/<flow_id> \
-  -H "Authorization: Bearer $HA_TOKEN"
+```
+Tool: ha_config_entries_flow
+  flow_id: "<flow_id>"
+  action: "delete"
 ```
 
 ### Key Principle

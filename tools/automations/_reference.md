@@ -2,6 +2,8 @@
 
 > This file contains the full JSON schema, trigger/condition/action type examples, and automation templates.
 > For the creation workflow and required details checklist, see `_guide.md`.
+>
+> **To create/update automations, use the `ha_config_set_automation` tool with config dicts using the schema below.**
 
 ---
 

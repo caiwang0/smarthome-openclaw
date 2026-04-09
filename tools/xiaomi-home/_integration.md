@@ -14,11 +14,9 @@ Uses OAuth config flow. See TOOLS.md for the generic config flow process.
 **Source:** HACS (custom integration)
 
 **Start the flow:**
-```bash
-curl -s -X POST http://localhost:8123/api/config/config_entries/flow \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"handler": "xiaomi_home"}'
+```
+Tool: ha_config_entries_flow
+  handler: "xiaomi_home"
 ```
 
 ## Cloud Regions
@@ -44,7 +42,7 @@ China-purchased devices are almost always on `cn`. Wrong region = 0 devices foun
 
 ## Shared Quirks
 
-- Entity IDs are very long (e.g., `media_player.xiaomi_cn_mitv_3b1ed2f92de5175e4cdf6f66d685ec5c_...`). Always look up the actual entity ID from `/api/devices` rather than guessing.
+- Entity IDs are very long (e.g., `media_player.xiaomi_cn_mitv_3b1ed2f92de5175e4cdf6f66d685ec5c_...`). Always look up the actual entity ID via `ha_search_entities` rather than guessing.
 - The Bluetooth integration may enter `setup_retry` state — the Pi's Bluetooth hardware may need a power cycle.
 - After setup, devices may take 30-60 seconds to appear in the device registry.
 

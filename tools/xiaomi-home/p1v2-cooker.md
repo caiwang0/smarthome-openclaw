@@ -6,60 +6,69 @@
 - **Type:** Smart multi-cooker (rice cooker)
 - **Model:** P1V2
 - **Integration:** Xiaomi Home (`xiaomi_home`)
-- **Primary Entity:** Look up via `/api/devices` — pattern: `sensor.xiaomi_*_p1v2_status_*`
+- **Primary Entity:** Look up via `ha_search_entities` — pattern: `sensor.xiaomi_*_p1v2_status_*`
 
 ## Commands
 
-> Read the API port first: `API_PORT=$(grep API_PORT .env | cut -d= -f2)`
-
 ### Cancel cooking
-```bash
-curl -s -X POST http://localhost:${API_PORT}/api/services/button/press \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<cancel_cooking_button_entity>"}'
+```
+Tool: ha_call_service
+  domain: "button"
+  service: "press"
+  entity_id: "<cancel_cooking_button_entity>"
 ```
 
 ### Set cooking mode
-```bash
-curl -s -X POST http://localhost:${API_PORT}/api/services/select/select_option \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<mode_select_entity>", "option": "<mode_value>"}'
 ```
-Look up available cooking modes from the entity's attributes via `/api/devices`.
+Tool: ha_call_service
+  domain: "select"
+  service: "select_option"
+  entity_id: "<mode_select_entity>"
+  data: {"option": "<mode_value>"}
+```
+Look up available cooking modes from the entity's attributes via `ha_get_state`.
 
 ### Set cook time
-```bash
-curl -s -X POST http://localhost:${API_PORT}/api/services/number/set_value \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<cook_time_entity>", "value": 30}'
+```
+Tool: ha_call_service
+  domain: "number"
+  service: "set_value"
+  entity_id: "<cook_time_entity>"
+  data: {"value": 30}
 ```
 
 ### Set keep warm temperature
-```bash
-curl -s -X POST http://localhost:${API_PORT}/api/services/number/set_value \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<keep_warm_temp_entity>", "value": 65}'
+```
+Tool: ha_call_service
+  domain: "number"
+  service: "set_value"
+  entity_id: "<keep_warm_temp_entity>"
+  data: {"value": 65}
 ```
 
 ### Set keep warm duration
-```bash
-curl -s -X POST http://localhost:${API_PORT}/api/services/number/set_value \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<keep_warm_time_entity>", "value": 60}'
+```
+Tool: ha_call_service
+  domain: "number"
+  service: "set_value"
+  entity_id: "<keep_warm_time_entity>"
+  data: {"value": 60}
 ```
 
 ### Toggle auto keep warm
-```bash
-curl -s -X POST http://localhost:${API_PORT}/api/services/switch/turn_on \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<auto_keep_warm_entity>"}'
+```
+Tool: ha_call_service
+  domain: "switch"
+  service: "turn_on"
+  entity_id: "<auto_keep_warm_entity>"
 ```
 
 ### Toggle alarm/beep
-```bash
-curl -s -X POST http://localhost:${API_PORT}/api/services/switch/turn_off \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<alarm_entity>"}'
+```
+Tool: ha_call_service
+  domain: "switch"
+  service: "turn_off"
+  entity_id: "<alarm_entity>"
 ```
 
 ### Key entities
