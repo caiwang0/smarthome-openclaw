@@ -25,14 +25,15 @@ Control your Home Assistant with natural language through any messaging app supp
                         │  to control devices    │
                         └───────────┬────────────┘
                                     │
-                                    ▼
+                                    │ MCP protocol (stdio)
+                                    │
                         ┌────────────────────────┐
-                        │    SmartHub API         │
-                        │   (Bun / Elysia)       │
+                        │       ha-mcp           │
+                        │   (87 structured tools) │
                         │                        │
                         │  WebSocket to HA,      │
-                        │  device aggregation,   │
-                        │  error recovery        │
+                        │  state verification,   │
+                        │  tool search           │
                         └───────────┬────────────┘
                                     │
                                     ▼
@@ -92,7 +93,7 @@ Once the bot comes online, say: **"Help me set up SmartHub"**
 | Step | What happens |
 |------|-------------|
 | Install Docker | Checks if Docker is installed, gives you the command if not |
-| Start Home Assistant | Runs `docker compose up -d` to launch HA and the API |
+| Start Home Assistant | Runs `docker compose up -d` to launch HA |
 | HA onboarding | Tells you to open the browser, create your admin user |
 | Access token | Guides you to create a long-lived token and paste it in chat |
 | Configure .env | Writes the token and verifies the connection |
@@ -145,21 +146,18 @@ Talk to OpenClaw naturally:
 home-assistant/
 ├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
 ├── TOOLS.md                     # Skill router — maps devices to files
-├── docker-compose.yml           # Runs HA + SmartHub API
-├── .env                         # HA token, API port, timezone
-│
-├── api/                         # SmartHub API (Bun/Elysia)
-│   └── src/
-│       ├── ha-client.ts         #   WebSocket connection to HA
-│       ├── device-aggregator.ts #   Groups entities by device
-│       └── routes/              #   REST endpoints
+├── docker-compose.yml           # Runs Home Assistant
+├── .env                         # HA token, timezone
+├── .claude/
+│   └── settings.json            # ha-mcp MCP server config (interim bridge)
 │
 ├── tools/                       # Skill files — the agent's knowledge base
-│   ├── _common.md               #   API patterns, auth, network
+│   ├── _common.md               #   ha-mcp tool patterns, network info
+│   ├── _ha-mcp.md               #   ha-mcp tool quick reference
 │   ├── _errors.md               #   Error handling & recovery
 │   ├── _services.md             #   Services by domain (light, climate, etc.)
 │   ├── integrations/
-│   │   └── _guide.md            #   Integration setup (HACS, OAuth, config flows)
+│   │   └── _guide.md            #   Integration setup (HACS, config flows, OAuth)
 │   ├── automations/
 │   │   ├── _guide.md            #   Automation workflow & checklist
 │   │   └── _reference.md        #   JSON schema, trigger/action types, templates
@@ -180,8 +178,8 @@ home-assistant/
 ```
 CLAUDE.md (always loaded)
     │
-    ├─ "Before controlling a device" ──→ reads tools/_common.md
-    │                                     then reads device skill file
+    ├─ "Before controlling a device" ──→ reads tools/_common.md for ha-mcp patterns
+    │                                     then reads device skill file for commands
     │
     ├─ "Before creating automation" ───→ reads tools/automations/_guide.md
     │
@@ -198,7 +196,8 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 ## Requirements
 
 - **OpenClaw CLI** — the AI agent framework
-- **Docker** — runs Home Assistant and the SmartHub API
+- **Docker** — runs Home Assistant
+- **uv** — Python package manager for running ha-mcp
 - **A messaging platform** — Discord, Telegram, WhatsApp, Feishu, or any platform supported by OpenClaw
 - **Claude API access** — OpenClaw uses Claude as its backend
 

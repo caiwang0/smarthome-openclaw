@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# SmartHub for OpenClaw — One-command installer
+# SmartHub + ha-mcp for OpenClaw — One-command installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh
 
 REPO_URL="https://github.com/caiwang0/smarthome-openclaw.git"
@@ -134,25 +134,69 @@ else
   echo "Port 8123 is free."
 fi
 
-# Check API port conflict
-API_PORT=$(grep API_PORT .env | cut -d= -f2)
-API_PORT=${API_PORT:-3001}
-if ss -tlnp 2>/dev/null | grep -q ":${API_PORT} "; then
-  for port in $(seq $((API_PORT + 1)) $((API_PORT + 10))); do
-    if ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
-      sed -i "s|API_PORT=.*|API_PORT=${port}|" .env
-      echo "API port conflict: reassigned to ${port}."
-      break
-    fi
-  done
-fi
-
 cd - > /dev/null
 
-# --- Install npm dependencies for the SmartHub API ---
-if [ -f "$TARGET/api/package.json" ]; then
-  echo "Installing API dependencies..."
-  cd "$TARGET/api" && npm install --silent 2>/dev/null || true
+# --- Install uv and verify ha-mcp ---
+# ha-mcp requires Python >=3.13,<3.14. Raspberry Pi OS Bookworm ships 3.11.
+# uvx manages its own Python toolchain — no system-wide Python 3.13 install needed.
+echo "Installing uv package manager..."
+curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null
+export PATH="$HOME/.local/bin:$PATH"
+
+echo "Verifying ha-mcp installation..."
+uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "ha-mcp OK" || echo "WARNING: ha-mcp verification failed"
+
+# --- Configure MCP server ---
+cd "$TARGET"
+if openclaw mcp list 2>/dev/null; then
+  echo "Configuring ha-mcp in openclaw.json (native MCP)..."
+  python3 -c "
+import json
+
+config_path = '$CONFIG_FILE'
+with open(config_path, 'r') as f:
+    config = json.load(f)
+
+mcp = config.setdefault('mcp', {})
+servers = mcp.setdefault('servers', {})
+servers['ha-mcp'] = {
+    'command': 'uvx',
+    'args': ['ha-mcp@7.2.0'],
+    'env': {
+        'HOMEASSISTANT_URL': 'http://localhost:8123',
+        'HOMEASSISTANT_TOKEN': '\${HA_TOKEN}',
+        'ENABLE_SKILLS': 'true',
+        'ENABLE_SKILLS_AS_TOOLS': 'true',
+        'ENABLE_TOOL_SEARCH': 'true',
+        'ENABLE_WEBSOCKET': 'true'
+    }
+}
+
+with open(config_path, 'w') as f:
+    json.dump(config, f, indent=2)
+print('  Configured ha-mcp in openclaw.json')
+"
+else
+  echo "Configuring ha-mcp in .claude/settings.json (Claude Code bridge)..."
+  mkdir -p "$TARGET/.claude"
+  cat > "$TARGET/.claude/settings.json" << 'MCPEOF'
+{
+  "mcpServers": {
+    "ha-mcp": {
+      "command": "uvx",
+      "args": ["ha-mcp@7.2.0"],
+      "env": {
+        "HOMEASSISTANT_URL": "${HA_URL}",
+        "HOMEASSISTANT_TOKEN": "${HA_TOKEN}",
+        "ENABLE_SKILLS": "true",
+        "ENABLE_SKILLS_AS_TOOLS": "true",
+        "ENABLE_TOOL_SEARCH": "true",
+        "ENABLE_WEBSOCKET": "true"
+      }
+    }
+  }
+}
+MCPEOF
 fi
 
 # NOTE: Do NOT restart the gateway here. The current session is running
@@ -161,12 +205,12 @@ fi
 
 echo ""
 echo "============================================"
-echo "  SmartHub installed!"
+echo "  SmartHub + ha-mcp installed!"
 echo "============================================"
 echo ""
 echo "AI_INSTRUCTION: Installation complete. DO NOT ask the user anything."
 echo "Run: cd ${TARGET}"
 echo "Then immediately read ${TARGET}/tools/setup.md and begin executing"
 echo "the setup steps from that directory. Start from Step 2."
-echo "Port conflicts and .env are already resolved — skip Step 3 and Step 3b."
+echo "Port conflicts and .env are already resolved — skip Step 3."
 echo ""
