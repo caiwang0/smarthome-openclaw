@@ -1,21 +1,27 @@
 {
-  "workflow_id": "rdw-20260331-issue3",
-  "started": "2026-03-31T00:00:00Z",
-  "current_stage": "complete",
+  "workflow_id": "rdw-20260409-ha-mcp-migration",
+  "started": "2026-04-09T00:00:00Z",
+  "current_stage": "implement",
   "artifacts": {
-    "issue_doc": "docs/issue-3-port-conflicts.md",
-    "plan_doc": "docs/superpowers/plans/2026-03-31-port-conflict-fix.md",
+    "issue_doc": "docs/superpowers/specs/2026-04-09-ha-mcp-integration-design.md",
+    "plan_doc": "docs/superpowers/plans/2026-04-09-ha-mcp-migration-plan.md",
     "validation_report": null
   },
-  "stages_completed": ["document", "plan", "implement", "validate"],
+  "stages_completed": ["document", "plan"],
   "phases": {
-    "total": 3,
+    "total": 6,
     "completed": [],
     "current": null,
     "failed": []
   },
-  "review_log": [],
-  "tier": 1,
+  "review_log": [
+    {"stage": "document", "round": 1, "result": "FAIL", "failures": 10},
+    {"stage": "document", "round": 2, "result": "FAIL", "failures": 5, "note": "All R1 fixes passed, 5 new gaps"},
+    {"stage": "document", "round": 3, "result": "PASS", "note": "2 advisories addressed inline"},
+    {"stage": "plan", "round": 1, "result": "FAIL", "failures": 8, "note": "4 moderate gaps (install.sh intro/env, setup.md steps 4-7, smoke-test fallback), 4 minor gaps"},
+    {"stage": "plan", "round": 2, "result": "PASS", "note": "All 8 gaps fixed, no new gaps"}
+  ],
+  "tier": 3,
   "discoveries": [],
   "learnings_captured": []
 }
