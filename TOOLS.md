@@ -7,7 +7,7 @@ This file is the entry point for all device and service knowledge. Detailed comm
 | Skill File | What It Covers |
 |------------|----------------|
 | [tools/_common.md](tools/_common.md) | ha-mcp tool patterns, network info |
-| [tools/_errors.md](tools/_errors.md) | Runtime error handling — HTTP errors, entity states, recovery steps |
+| [tools/_errors.md](tools/_errors.md) | Runtime error handling — ToolError patterns, entity states, recovery steps |
 | [tools/_services.md](tools/_services.md) | Per-domain service reference (light, climate, media_player, etc.) |
 | [tools/_ha-mcp.md](tools/_ha-mcp.md) | ha-mcp tool quick reference — device control, automations, integrations, helpers |
 | [tools/integrations/_guide.md](tools/integrations/_guide.md) | Integration setup — HACS, config flows, OAuth, error handling |

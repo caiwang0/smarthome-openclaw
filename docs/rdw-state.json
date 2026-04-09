@@ -10,8 +10,8 @@
   "stages_completed": ["document", "plan"],
   "phases": {
     "total": 6,
-    "completed": [],
-    "current": null,
+    "completed": ["phase-1-infrastructure", "phase-2-core-skills", "phase-3-domain-skills", "phase-4-user-docs", "phase-5-verification"],
+    "current": "phase-6-parallel-run",
     "failed": []
   },
   "review_log": [
@@ -19,7 +19,12 @@
     {"stage": "document", "round": 2, "result": "FAIL", "failures": 5, "note": "All R1 fixes passed, 5 new gaps"},
     {"stage": "document", "round": 3, "result": "PASS", "note": "2 advisories addressed inline"},
     {"stage": "plan", "round": 1, "result": "FAIL", "failures": 8, "note": "4 moderate gaps (install.sh intro/env, setup.md steps 4-7, smoke-test fallback), 4 minor gaps"},
-    {"stage": "plan", "round": 2, "result": "PASS", "note": "All 8 gaps fixed, no new gaps"}
+    {"stage": "plan", "round": 2, "result": "PASS", "note": "All 8 gaps fixed, no new gaps"},
+    {"stage": "implement-phase-1", "round": 1, "result": "PASS", "note": "4/4 tasks, all verifications pass"},
+    {"stage": "implement-phase-2", "round": 1, "result": "PASS", "note": "6/6 tasks, zero legacy refs"},
+    {"stage": "implement-phase-3", "round": 1, "result": "PASS", "note": "7/7 tasks, zero legacy refs"},
+    {"stage": "implement-phase-4", "round": 1, "result": "PASS", "note": "3/3 tasks, all syntax+ref checks pass"},
+    {"stage": "implement-phase-5", "round": 1, "result": "PASS", "note": "Full-repo scan clean. Historical docs in docs/ have legacy refs (expected). PI_IP in mDNS/OAuth fallback (acceptable)."}
   ],
   "tier": 3,
   "discoveries": [],
