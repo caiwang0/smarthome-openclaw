@@ -14,8 +14,8 @@ grep -q 'HA_TOKEN=.' .env 2>/dev/null && echo "ENV_OK" || echo "ENV_MISSING"
 # 2. Is Home Assistant reachable?
 HA_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2); curl -s --max-time 5 ${HA_URL:-http://localhost:8123}/api/ 2>/dev/null | grep -q "API running" && echo "HA_OK" || echo "HA_DOWN"
 
-# 3. Is the SmartHub API reachable?
-API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s --max-time 5 http://localhost:${API_PORT}/api/health 2>/dev/null | grep -q "ok" && echo "API_OK" || echo "API_DOWN"
+# 3. Is ha-mcp installed and can it reach HA?
+HOMEASSISTANT_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2) HOMEASSISTANT_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2) uvx ha-mcp@7.2.0 --smoke-test 2>/dev/null && echo "MCP_OK" || echo "MCP_DOWN"
 ```
 
 **If ANY check fails**, the system is not fully set up. You MUST read `tools/setup.md` and follow it step by step. Do NOT improvise or ask your own questions — the setup skill has the exact flow. Skip steps that are already passing (e.g., if HA is running, skip the Docker step) but follow the skill for everything else.
@@ -29,7 +29,7 @@ API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s --max-time 5 http://localh
 Device commands, API patterns, and device-specific knowledge are organized in the `tools/` folder.
 
 **Before controlling any device:**
-1. Read `tools/_common.md` for API patterns, auth tokens, and the API routing rule
+1. Read `tools/_common.md` for ha-mcp tool patterns and network info
 2. Read the device's skill file (e.g., `tools/xiaomi-home/tv.md`) for specific commands and quirks
 3. If unsure which device file to use, check `TOOLS.md` for the Quick Reference table
 4. If unsure which services are available for a domain, check `tools/_services.md`
@@ -69,16 +69,15 @@ When the user asks to add an integration (Xiaomi, Philips Hue, Broadlink, etc.),
 
 **CRITICAL — Always offer a manual option for setup/configuration tasks:**
 - Whenever the user asks to set up, add, configure, or troubleshoot an integration, device, or any HA configuration, **always include the HA dashboard link** as a "do it yourself" option.
-- Get the Pi's IP and HA port first:
+- Get the HA port first:
   ```bash
-  PI_IP=$(hostname -I | awk '{print $1}')
   HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
   ```
 - Use the appropriate dashboard page:
-  - Integrations → `[Open HA Integrations](http://<PI_IP>:<HA_PORT>/config/integrations/dashboard)`
-  - Devices → `[Open HA Devices](http://<PI_IP>:<HA_PORT>/config/devices/dashboard)`
-  - Automations → `[Open HA Automations](http://<PI_IP>:<HA_PORT>/config/automation/dashboard)`
-  - Settings → `[Open HA Settings](http://<PI_IP>:<HA_PORT>/config/dashboard)`
+  - Integrations → `[Open HA Integrations](http://homeassistant.local:<HA_PORT>/config/integrations/dashboard)`
+  - Devices → `[Open HA Devices](http://homeassistant.local:<HA_PORT>/config/devices/dashboard)`
+  - Automations → `[Open HA Automations](http://homeassistant.local:<HA_PORT>/config/automation/dashboard)`
+  - Settings → `[Open HA Settings](http://homeassistant.local:<HA_PORT>/config/dashboard)`
 - This applies even if you're going to guide them step by step — the user should always have the choice to do it themselves in the UI.
 
 **General:**
@@ -86,9 +85,9 @@ When the user asks to add an integration (Xiaomi, Philips Hue, Broadlink, etc.),
 - After controlling a device, confirm what you did.
 - If a device is offline, mention it and suggest the user check if it's powered on.
 - Match the user's language — if they write in Chinese, respond in Chinese.
-- Do NOT make up device names. Always check `/api/devices` first if unsure.
+- Do NOT make up device names. Always check via `ha_search_entities` first if unsure.
 - When listing devices, format them as a readable list, not raw JSON.
-- **For any setup/configuration task: read the form fields from the API response and present every option to the user.** Never assume or auto-fill — each integration and each user is different.
+- **For any setup/configuration task: read the form fields from the ha-mcp tool response and present every option to the user.** Never assume or auto-fill — each integration and each user is different.
 
 ## Known Issues
 

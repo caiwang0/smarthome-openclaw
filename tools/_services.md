@@ -1,6 +1,6 @@
 # Services by Domain — Quick Reference
 
-> Use the SmartHub API for all device control: `http://localhost:${API_PORT}/api/services/<domain>/<service>`
+> Use `ha_call_service` for all device control. For a full list of services for any domain, use `ha_list_services`.
 
 ## light
 
