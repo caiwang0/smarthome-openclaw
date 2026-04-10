@@ -1,77 +1,14 @@
-# Services by Domain — Quick Reference
+# Services by Domain — Quirks & Patterns
 
-> Use `ha_call_service` for all device control. For a full list of services for any domain, use `ha_list_services`.
+> For the full per-domain service catalog, call `ha_list_services` (e.g., `ha_list_services(domain="light")`). This file keeps only the SmartHub-specific quirks and conversion rules the LLM cannot derive from tool schemas.
 
-## light
+## Quirks & Patterns
 
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `turn_on` | `brightness` (0-255), `color_temp` (mireds), `rgb_color` ([r,g,b]) | All data fields optional |
-| `turn_off` | — | |
-| `toggle` | — | |
-
-## switch
-
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `turn_on` | — | |
-| `turn_off` | — | |
-| `toggle` | — | |
-
-## climate
-
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `turn_on` | — | |
-| `turn_off` | — | |
-| `set_temperature` | `temperature`, `hvac_mode` (optional) | |
-| `set_hvac_mode` | `hvac_mode`: `off`, `cool`, `heat`, `heat_cool`, `auto`, `dry`, `fan_only` | States ARE HVAC modes, not on/off |
-| `set_fan_mode` | `fan_mode` | Values are integration-specific |
-| `set_swing_mode` | `swing_mode` | Values are integration-specific |
-
-## media_player
-
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `turn_on` | — | May not work if device disconnects Wi-Fi in standby |
-| `turn_off` | — | |
-| `volume_up` | — | |
-| `volume_down` | — | |
-| `volume_set` | `volume_level` (0.0 to 1.0) | |
-| `volume_mute` | `is_volume_muted` (true/false) | |
-| `media_play` | — | |
-| `media_pause` | — | |
-| `media_stop` | — | |
-| `media_next_track` | — | |
-| `media_previous_track` | — | |
-| `select_source` | `source` | Check entity attributes for available sources |
-
-## select
-
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `select_option` | `option` | Check entity attributes for available options |
-
-## number
-
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `set_value` | `value` | Check entity attributes for min/max/step |
-
-## button
-
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `press` | — | One-shot action, no state |
-
-## automation
-
-| Service | Data fields | Notes |
-|---------|------------|-------|
-| `turn_on` | — | Enable an automation |
-| `turn_off` | — | Disable an automation |
-| `trigger` | — | Manually fire an automation |
-| `reload` | — | Reload all automations from YAML |
+- **`climate.set_hvac_mode`** — States ARE HVAC modes, not on/off. The `state` of a `climate.*` entity is the current HVAC mode string (`off`, `cool`, `heat`, `heat_cool`, `auto`, `dry`, `fan_only`), not a boolean. Don't compare entity state to `"on"` or `"off"`.
+- **`media_player.turn_on`** — May not work if device disconnects Wi-Fi in standby. If `turn_on` silently fails, the device is likely off-network; tell the user and suggest a physical power check instead of retrying.
+- **`media_player.select_source`** — Check entity attributes for available sources. Read the `source_list` attribute from `ha_get_state` before calling — sources are per-device.
+- **`select.select_option`** — Check entity attributes for available options. Read the `options` attribute from `ha_get_state` before calling.
+- **`number.set_value`** — Check entity attributes for min/max/step. Read `min`, `max`, `step` attributes from `ha_get_state` before calling; setting a value outside the range can fail silently on some integrations.
 
 ## Brightness Conversion
 
