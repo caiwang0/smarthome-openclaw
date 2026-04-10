@@ -153,7 +153,6 @@ home-assistant/
 │
 ├── tools/                       # Skill files — the agent's knowledge base
 │   ├── _common.md               #   ha-mcp tool patterns, network info
-│   ├── _ha-mcp.md               #   ha-mcp tool quick reference
 │   ├── _errors.md               #   Error handling & recovery
 │   ├── _services.md             #   Services by domain (light, climate, etc.)
 │   ├── integrations/
