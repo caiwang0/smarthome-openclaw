@@ -71,62 +71,6 @@ The token will be filled in later (Step 6). For now, `.env` just needs to exist 
 
 ---
 
-## Step 3b: Check for Port Conflicts
-
-Before starting Docker, check if the required ports are already in use and resolve conflicts automatically:
-
-```bash
-# Check and resolve HA port (8123)
-if ss -tlnp | grep -q ':8123 '; then
-  # Find a free alternative port
-  for port in 8124 8125 8126 8127 8128; do
-    ss -tlnp | grep -q ":${port} " || { HA_PORT=$port; break; }
-  done
-
-  # Write server_port to ha-config/configuration.yaml before HA starts
-  mkdir -p ha-config
-  if [ ! -s ha-config/configuration.yaml ]; then
-    # Fresh install — safe to write directly
-    printf "http:\n  server_port: %s\n" "${HA_PORT}" > ha-config/configuration.yaml
-  else
-    # Existing config — too risky to modify automatically
-    echo "WARNING: ha-config/configuration.yaml already exists."
-    echo "Add this manually under the http: section, then continue:"
-    echo "  server_port: ${HA_PORT}"
-    echo "Press Enter when done."
-    read -r
-  fi
-
-  # Update HA_URL in .env
-  sed -i "s|HA_URL=.*|HA_URL=http://localhost:${HA_PORT}|" .env
-
-  echo "Port 8123 was in use. HA will run on port ${HA_PORT}."
-  echo "Note: Xiaomi OAuth requires HA on port 8123. If you use Xiaomi, free port 8123 first."
-else
-  HA_PORT=8123
-  echo "Port 8123 is free."
-fi
-
-# Check and resolve API port
-API_PORT=$(grep API_PORT .env | cut -d= -f2)
-API_PORT=${API_PORT:-3001}
-if ss -tlnp | grep -q ":${API_PORT} "; then
-  for port in $(seq $((API_PORT + 1)) $((API_PORT + 10))); do
-    ss -tlnp | grep -q ":${port} " || { API_PORT=$port; break; }
-  done
-  sed -i "s|API_PORT=.*|API_PORT=${API_PORT}|" .env
-  echo "API port conflict resolved: using port ${API_PORT}."
-fi
-```
-
-**Important:** If a non-default port was assigned, update all skill files that reference the old port:
-```bash
-grep -rn 'localhost:3001' tools/ CLAUDE.md TOOLS.md
-# Replace any matches with localhost:${API_PORT}
-```
-
----
-
 ## Step 4: Start Home Assistant
 
 ```bash
@@ -136,7 +80,7 @@ docker compose up -d
 Wait for HA to boot (usually 30-60 seconds on first run):
 
 ```bash
-# Read the actual HA port from .env (set in Step 3b)
+# Read the actual HA port from .env (set in Step 3)
 HA_URL=$(grep HA_URL .env | cut -d= -f2)
 HA_URL=${HA_URL:-http://localhost:8123}
 
@@ -268,39 +212,41 @@ Replace `<PASTE_TOKEN_HERE>` with the actual token the user provided.
 
 ---
 
-## Step 8: Restart the API
+## Step 8: Verify ha-mcp Can Reach HA
 
-The API container needs to pick up the new token:
-
-```bash
-docker compose restart api
-```
-
-Wait a few seconds, then verify:
+ha-mcp is spawned on demand (no persistent service to restart). Verify it can connect:
 
 ```bash
-API_PORT=$(grep API_PORT .env | cut -d= -f2)
-curl -s http://localhost:${API_PORT}/api/health
+HOMEASSISTANT_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2) \
+HOMEASSISTANT_URL=$(grep HA_URL .env | cut -d= -f2) \
+uvx ha-mcp@7.2.0 --smoke-test
 ```
 
-Should return `{"status":"ok","ha_connected":true}`.
+Expected success: "Connected to Home Assistant at <URL>."
+Expected failure: error message indicating which component failed.
+
+**Smoke-test fallback:** If `--smoke-test` does not exist in v7.2.0, use:
+```bash
+uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "MCP_INSTALLED" || echo "MCP_MISSING"
+```
+This only verifies ha-mcp is installed (not HA connectivity). HA connectivity is confirmed by Step 4 (HA API poll in Step 4 of setup.md).
 
 ---
 
 ## Step 9: Verify Connection
 
-Test that the full pipeline works:
+Test that the full pipeline works by using `ha_search_entities` to list entities:
 
-```bash
-API_PORT=$(grep API_PORT .env | cut -d= -f2)
-curl -s http://localhost:${API_PORT}/api/devices
+```
+Tool: ha_search_entities
+  query: ""
 ```
 
 Tell the user what you find:
 
-- If devices are returned → "Connected! I found X devices."
-- If `{"devices":[],"count":0}` → "Connected, but no devices yet. We can add integrations next."
-- If an error → troubleshoot based on the error message.
+- If entities are returned → "Connected! I found X entities."
+- If no entities → "Connected, but no devices yet. We can add integrations next."
+- If an error → check `tools/_errors.md` for troubleshooting.
 
 ---
 
@@ -308,7 +254,7 @@ Tell the user what you find:
 
 Setup is complete. Ask the user:
 
-> SmartHub is ready! Here's what we can do next:
+> ha-mcp is connected! Here's what we can do next:
 >
 > 1. **Set up remote access** — I can create a public URL so you can access HA from anywhere
 > 2. **Add device integrations** — connect your Xiaomi, Philips Hue, Broadlink, or other smart devices

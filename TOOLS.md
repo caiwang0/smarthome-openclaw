@@ -6,8 +6,8 @@ This file is the entry point for all device and service knowledge. Detailed comm
 
 | Skill File | What It Covers |
 |------------|----------------|
-| [tools/_common.md](tools/_common.md) | SmartHub API, HA Direct API, auth tokens, network info, API routing rule |
-| [tools/_errors.md](tools/_errors.md) | Runtime error handling — HTTP errors, entity states, recovery steps |
+| [tools/_common.md](tools/_common.md) | ha-mcp tool patterns, network info |
+| [tools/_errors.md](tools/_errors.md) | Runtime error handling — ToolError patterns, entity states, recovery steps |
 | [tools/_services.md](tools/_services.md) | Per-domain service reference (light, climate, media_player, etc.) |
 | [tools/integrations/_guide.md](tools/integrations/_guide.md) | Integration setup — HACS, config flows, OAuth, error handling |
 | [tools/xiaomi-home/_integration.md](tools/xiaomi-home/_integration.md) | Xiaomi Home setup, OAuth, cloud regions, shared quirks |
@@ -20,7 +20,7 @@ This file is the entry point for all device and service knowledge. Detailed comm
 
 **Before controlling a device**, read its skill file for the correct entity ID, commands, and known quirks.
 
-**For general API patterns** (listing devices, calling services, managing areas), read `tools/_common.md`.
+**For ha-mcp tool patterns** (listing devices, calling services, managing areas), read `tools/_common.md`.
 
 **For creating automations**, read `tools/automations/_guide.md` — it has the full workflow and checklist.
 
@@ -38,7 +38,7 @@ You maintain the `tools/` folder automatically. Follow these rules:
 
 ### After a new integration completes (`create_entry`)
 
-1. Query `API_PORT=$(grep API_PORT .env | cut -d= -f2); curl -s http://localhost:${API_PORT}/api/devices` to discover new devices
+1. Use `ha_search_entities` to discover new devices from the integration
 2. Determine the integration domain (e.g., `xiaomi_home`, `hue`, `broadlink`)
 3. If `tools/<integration>/` doesn't exist, create it
 4. If `tools/<integration>/_integration.md` doesn't exist, create it with:
@@ -77,13 +77,11 @@ If a device behaves unexpectedly (e.g., returns "unavailable" but still responds
 - **Type:** `<domain>` (<sub-type if relevant>)
 - **Model:** `<model>`
 - **Integration:** <Integration Name> (`<integration_domain>`)
-- **Primary Entity:** Look up via `/api/devices` — pattern: `<domain>.xiaomi_*_<model_slug>`
+- **Primary Entity:** Look up via `ha_search_entities` — pattern: `<domain>.xiaomi_*_<model_slug>`
 
 ## Commands
 
-> Read the API port first: `API_PORT=$(grep API_PORT .env | cut -d= -f2)`
-
-<curl examples using http://localhost:${API_PORT}/api/services/... with placeholder entity IDs>
+<ha-mcp tool call examples using ha_call_service with placeholder entity IDs>
 
 ### Key entities
 

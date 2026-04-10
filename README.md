@@ -25,14 +25,15 @@ Control your Home Assistant with natural language through any messaging app supp
                         │  to control devices    │
                         └───────────┬────────────┘
                                     │
-                                    ▼
+                                    │ MCP protocol (stdio)
+                                    │
                         ┌────────────────────────┐
-                        │    SmartHub API         │
-                        │   (Bun / Elysia)       │
+                        │       ha-mcp 7.2.0     │
+                        │  (~90 structured tools)│
                         │                        │
                         │  WebSocket to HA,      │
-                        │  device aggregation,   │
-                        │  error recovery        │
+                        │  state verification,   │
+                        │  tool search           │
                         └───────────┬────────────┘
                                     │
                                     ▼
@@ -92,7 +93,7 @@ Once the bot comes online, say: **"Help me set up SmartHub"**
 | Step | What happens |
 |------|-------------|
 | Install Docker | Checks if Docker is installed, gives you the command if not |
-| Start Home Assistant | Runs `docker compose up -d` to launch HA and the API |
+| Start Home Assistant | Runs `docker compose up -d` to launch HA |
 | HA onboarding | Tells you to open the browser, create your admin user |
 | Access token | Guides you to create a long-lived token and paste it in chat |
 | Configure .env | Writes the token and verifies the connection |
@@ -109,7 +110,7 @@ OpenClaw: Let's get your smart home running. Do you have Docker installed?
 
 You:      Docker version 27.5.1
 OpenClaw: Docker is ready. Starting Home Assistant...
-          Done. Open http://192.168.2.97:8123 in your browser.
+          Done. Open http://homeassistant.local:8123 in your browser.
           Create your admin account and let me know when you're done.
 
 You:      Done, created user "alice"
@@ -145,21 +146,23 @@ Talk to OpenClaw naturally:
 home-assistant/
 ├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
 ├── TOOLS.md                     # Skill router — maps devices to files
-├── docker-compose.yml           # Runs HA + SmartHub API
-├── .env                         # HA token, API port, timezone
+├── docker-compose.yml           # Runs Home Assistant
+├── install.sh                   # One-command installer (clone, port-resolve, wire ha-mcp)
+├── .env.example                 # Template — copy to .env, fill in HA_TOKEN
+├── .claude/
+│   └── settings.json            # ha-mcp MCP server + PreToolUse approval hook
 │
-├── api/                         # SmartHub API (Bun/Elysia)
-│   └── src/
-│       ├── ha-client.ts         #   WebSocket connection to HA
-│       ├── device-aggregator.ts #   Groups entities by device
-│       └── routes/              #   REST endpoints
+├── scripts/
+│   └── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
+│                                # explicitly confirmed in their latest message
 │
 ├── tools/                       # Skill files — the agent's knowledge base
-│   ├── _common.md               #   API patterns, auth, network
+│   ├── setup.md                 #   First-run setup flow (Docker → HA → token → .env)
+│   ├── _common.md               #   ha-mcp tool patterns, network info
 │   ├── _errors.md               #   Error handling & recovery
-│   ├── _services.md             #   Services by domain (light, climate, etc.)
+│   ├── _services.md             #   Domain quirks (HVAC modes, brightness 0-255, etc.)
 │   ├── integrations/
-│   │   └── _guide.md            #   Integration setup (HACS, OAuth, config flows)
+│   │   └── _guide.md            #   Integration setup (HACS, config flows, OAuth)
 │   ├── automations/
 │   │   ├── _guide.md            #   Automation workflow & checklist
 │   │   └── _reference.md        #   JSON schema, trigger/action types, templates
@@ -171,7 +174,7 @@ home-assistant/
 │   └── printer/
 │       └── office-printer.md    #   CUPS printer setup
 │
-├── ha-config/                   # HA configuration (Docker volume)
+├── ha-config/                   # HA configuration (Docker volume, gitignored)
 └── docs/                        # Research, specs, design docs
 ```
 
@@ -180,25 +183,37 @@ home-assistant/
 ```
 CLAUDE.md (always loaded)
     │
-    ├─ "Before controlling a device" ──→ reads tools/_common.md
-    │                                     then reads device skill file
+    ├─ First-run check fails ────────→ reads tools/setup.md
+    │                                   (Docker / HA / token / .env bootstrap)
     │
-    ├─ "Before creating automation" ───→ reads tools/automations/_guide.md
+    ├─ "Before controlling a device" → reads tools/_common.md for ha-mcp patterns
+    │                                   then device skill file for commands & quirks
+    │                                   then tools/_services.md if unsure about a service
+    │                                   then tools/_errors.md if a call fails
     │
-    └─ "Before adding integration" ────→ reads tools/integrations/_guide.md
+    ├─ "Before creating automation" ─→ reads tools/automations/_guide.md
+    │                                   then _reference.md for JSON schema
+    │
+    └─ "Before adding integration" ──→ reads tools/integrations/_guide.md
 
 TOOLS.md (loaded on demand)
     └─ Quick Reference table maps device names → skill files
+
+Destructive ha-mcp calls (create/modify/delete automations, scripts, integrations,
+devices, backups, restarts, HACS downloads)
+    └─ scripts/approval-gate.py runs as a Claude Code PreToolUse hook and blocks
+       the call unless the user's latest message is an explicit "yes / confirm"
 ```
 
-Skill files are loaded **on demand**, not all at once. The agent only reads what it needs for the current task.
+Skill files are loaded **on demand**, not all at once. The agent only reads what it needs for the current task — this keeps the LLM context small and replies fast.
 
 ---
 
 ## Requirements
 
 - **OpenClaw CLI** — the AI agent framework
-- **Docker** — runs Home Assistant and the SmartHub API
+- **Docker** — runs Home Assistant
+- **uv** — Python package manager for running ha-mcp
 - **A messaging platform** — Discord, Telegram, WhatsApp, Feishu, or any platform supported by OpenClaw
 - **Claude API access** — OpenClaw uses Claude as its backend
 

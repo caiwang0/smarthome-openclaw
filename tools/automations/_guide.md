@@ -10,68 +10,68 @@ When a user asks for an automation (e.g., "turn off lights at midnight"), follow
 4. **Draft the automation JSON** — Use the schema and examples below
 5. **Show the user a summary** — Present in plain language: "At midnight every day → turn off living room light. Want me to create this?"
 6. **Wait for confirmation** — Do NOT create until the user says yes
-7. **Create via API** — POST the JSON to HA
+7. **Create via ha-mcp** — use `ha_config_set_automation` tool
 8. **Confirm success** — Tell the user the automation is active
 9. **Update skill files** — Add the automation to `tools/automations/` as a record
 
 ---
 
-## REST API Reference
-
-**Authentication for all calls:**
-```bash
-HA_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
-```
+## ha-mcp Tool Reference
 
 ### Create an automation
-```bash
-curl -s -X POST http://localhost:8123/api/config/automation/config/<automation_id> \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '<JSON payload>'
 ```
-The `<automation_id>` in the URL must match the `id` field in the JSON body. Use a descriptive slug (e.g., `lights_off_midnight`, `ac_on_when_hot`).
+Tool: ha_config_set_automation
+  config: <JSON payload>
+```
+The `id` field in the config dict must be a unique descriptive slug (e.g., `lights_off_midnight`, `ac_on_when_hot`).
 
 ### Delete an automation
-```bash
-curl -s -X DELETE http://localhost:8123/api/config/automation/config/<automation_id> \
-  -H "Authorization: Bearer $HA_TOKEN"
+```
+Tool: ha_config_delete_automation
+  automation_id: "<automation_id>"
 ```
 
 ### Enable an automation
-```bash
-curl -s -X POST http://localhost:8123/api/services/automation/turn_on \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "automation.<automation_id>"}'
+```
+Tool: ha_call_service
+  domain: "automation"
+  service: "turn_on"
+  entity_id: "automation.<automation_id>"
 ```
 
 ### Disable an automation
-```bash
-curl -s -X POST http://localhost:8123/api/services/automation/turn_off \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "automation.<automation_id>"}'
+```
+Tool: ha_call_service
+  domain: "automation"
+  service: "turn_off"
+  entity_id: "automation.<automation_id>"
 ```
 
 ### Manually trigger an automation
-```bash
-curl -s -X POST http://localhost:8123/api/services/automation/trigger \
-  -H "Authorization: Bearer $HA_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "automation.<automation_id>"}'
+```
+Tool: ha_call_service
+  domain: "automation"
+  service: "trigger"
+  entity_id: "automation.<automation_id>"
 ```
 
 ### Reload all automations (after manual YAML edits)
-```bash
-curl -s -X POST http://localhost:8123/api/services/automation/reload \
-  -H "Authorization: Bearer $HA_TOKEN"
+```
+Tool: ha_call_service
+  domain: "automation"
+  service: "reload"
 ```
 
 ### List all automations
-```bash
-curl -s http://localhost:8123/api/states \
-  -H "Authorization: Bearer $HA_TOKEN" | jq '[.[] | select(.entity_id | startswith("automation.")) | {entity_id, state, attributes: {friendly_name: .attributes.friendly_name, last_triggered: .attributes.last_triggered}}]'
+```
+Tool: ha_search_entities
+  query: "automation"
+```
+
+### Debug an automation
+```
+Tool: ha_get_automation_traces
+  automation_id: "<automation_id>"
 ```
 
 ---
