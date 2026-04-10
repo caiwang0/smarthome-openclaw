@@ -640,3 +640,26 @@ uvx ha-mcp@7.2.0
 ```
 
 Update deliberately after testing, not automatically. ha-mcp is actively developed — breaking changes happen (e.g., v7.0.0 had a breaking OAuth change).
+
+---
+
+## 2026-04-10 Correction — ha-mcp 7.2.0 Bundled Skills Claim
+
+**Added by:** `rdw-20260410-skill-audit` workflow
+**Affects:** Primarily lines 496-504 ("ha-mcp skills vs our skill files"); secondary context at lines 58, 120-121, and 472.
+**Original content preserved above** — this is an append-only correction, not an in-place edit.
+
+The "ha-mcp skills vs our skill files" section above (lines 496-504) asserts that ha-mcp bundles general HA best-practice skills (automation patterns, helper selection, etc.). A verification pass on 2026-04-10 discovered this is **false for the PyPI wheel** that SmartHub installs via `uvx ha-mcp@7.2.0`.
+
+**Evidence** (see `docs/rdw-state-skill-audit.json` Discovery D1 for full details):
+- The wheel `RECORD` at `~/.cache/uv/archive-v0/*/lib/python3.13/site-packages/ha_mcp-7.2.0.dist-info/RECORD` contains zero `.md` files and no `resources/` directory entries.
+- `ha_mcp/server.py:146` `_get_skills_dir()` returns `None` because `resources/skills-vendor/skills/` does not exist in the installed package.
+- `ha_mcp/server.py:471` `_register_skills()` logs a warning and exits early when `skills_dir is None`.
+- `ListMcpResourcesTool` for the `ha-mcp` server returns "No resources found" at runtime.
+- The `ENABLE_SKILLS=true` and `ENABLE_SKILLS_AS_TOOLS=true` env vars in `.claude/settings.json` silently have no effect — there are no skills to load.
+
+**Root cause:** The `resources/skills-vendor/` directory is a git submodule in the ha-mcp source repository and gets stripped from the PyPI wheel build. The code paths exist but never fire for wheel-installed users.
+
+**Impact on the migration design:** The statement "ha-mcp bundles general HA best-practice skills" and the "Keep both. No conflict. No deduplication needed." conclusion remain **operationally correct** — we still keep both sets of files — but the *reason* cited was wrong. SmartHub's `tools/*.md` files are complementary to **raw ha-mcp tool schemas**, not to bundled ha-mcp skills, because there are no bundled ha-mcp skills. This changes how future contributors should think about deduplication: the reference point is the MCP tool schema layer, not a parallel skill layer.
+
+**Follow-up:** Potential upstream packaging bug in ha-mcp deferred (not filed with homeassistant-ai/ha-mcp). Re-evaluate if a future ha-mcp release ships the `resources/skills-vendor/` submodule in the wheel.
