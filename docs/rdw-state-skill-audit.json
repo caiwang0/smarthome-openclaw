@@ -1,0 +1,118 @@
+{
+  "workflow_id": "rdw-20260410-skill-audit",
+  "started": "2026-04-10T00:00:00Z",
+  "current_stage": "implement_phase_0_baseline_captured",
+  "artifacts": {
+    "issue_doc": "docs/rdw-skill-audit.md",
+    "plan_doc": "docs/rdw-skill-audit-plan.md",
+    "validation_report": null
+  },
+  "stages_completed": ["document", "plan"],
+  "phases": {
+    "total": 6,
+    "completed": ["phase-0-baseline"],
+    "current": "phase-1-delete-ha-mcp-md",
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "PASS",
+      "reviewer": "general-purpose subagent (doc-reviewer skill)",
+      "verdict_note": "Technical PASS — all 4 findings scored 2+ on Clarity/Testability/Completeness, no criterion scored 1. Reviewer flagged 6 advisories.",
+      "advisories": [
+        "P4 line number reference wrong (~291 → actual 496-504)",
+        "894 total lines math was off (actual 951 via wc -l)",
+        "P3 'no quirk lost' success criterion too soft — needed pre-enumerated quirk list for grep verification",
+        "No overall completion criterion tying findings to Intent goal — added Workflow Completion Criteria section",
+        "_errors.md line 27 historical meta-note not flagged as protected — added to Keep List with explicit note",
+        "P1 finding could be strengthened: _ha-mcp.md:19 has stale tool name ha_config_delete_automation (real: ha_config_remove_automation)"
+      ],
+      "resolution": "All 6 advisories applied inline via 6 Edit calls post-review. Verified via grep for key strings (951, 'lines 496-504', 'ha_config_remove_automation', 'Quirks inventory', 'Workflow Completion Criteria', 'intentionally removed'). Inline self-verification used instead of round-2 subagent dispatch due to Tier 1 subagent budget (0-2 total; 2 already spent on verification + round-1 review)."
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "PASS",
+      "reviewer": "self-review (Tier 1 skips cross-reference doc-reviewer per RDW protocol)",
+      "verdict_note": "Plan written inline via superpowers:writing-plans. 6 phases (0 baseline, 1-4 per finding, 5 validation). Every finding P1-P4 maps to at least one phase. Workflow Completion Criteria covered by Phase 0 baseline capture + Phase 5 gate checks. Intent abort condition (<50 lines) implemented at Task 5.3. Intent stop rule (lose a quirk) implemented at Task 3.3 post-rewrite grep. No placeholders — every file path, command, and commit message is concrete. Phases ordered by risk: delete (lowest) -> bounded trim -> full rewrite (highest) -> append-only doc edit.",
+      "self_review_checklist": {
+        "spec_coverage": "PASS — P1->Phase 1, P2->Phase 2, P3->Phase 3, P4->Phase 4, Completion Criteria->Phase 0+5",
+        "placeholder_scan": "PASS — only runtime-computed measurements templated (byte counts in Task 0.3, delta values in Task 5.5)",
+        "type_consistency": "N/A (markdown-only)",
+        "dependency_ordering": "PASS — phases independent per issue doc, ordered lowest-risk-first for cheap rollback"
+      },
+      "resolution": "Plan approved by self-review. Per Tier 1 protocol, no doc-reviewer subagent dispatched (budget spent). Awaiting user approval before Stage 3 implementation."
+    }
+  ],
+  "tier": 1,
+  "tier_rationale": "markdown cleanup in local repo, trivially reversible via git, no staging/prod, 4-8 expected findings, no infra/security/compliance",
+  "state_file_note": "Using rdw-state-skill-audit.json (not default rdw-state.json) because the prior ha-mcp-migration workflow is still open at phase-6-parallel-run and we don't want to clobber its state",
+  "discoveries": [
+    {
+      "id": "D1",
+      "stage": "document",
+      "date": "2026-04-10",
+      "summary": "ha-mcp 7.2.0 PyPI wheel contains ZERO bundled skill markdown files",
+      "evidence": [
+        "Wheel RECORD at ~/.cache/uv/archive-v0/*/lib/python3.13/site-packages/ha_mcp-7.2.0.dist-info/RECORD contains no .md files for skills and no resources/ directory entries",
+        "_get_skills_dir() at server.py:146 returns None because resources/skills-vendor/skills/ does not exist in the installed package",
+        "_register_skills() at server.py:471 logs warning and exits early when skills_dir is None",
+        "ListMcpResourcesTool for server 'ha-mcp' returns 'No resources found'",
+        "Two independent archive-v0 hash dirs both confirm missing resources/ — not a corruption"
+      ],
+      "impact": "Invalidates the original audit premise. The claim 'ha-mcp's bundled skills make SmartHub's tools/*.md files redundant' is false for the uvx install path. The skills-vendor is a git submodule stripped from the PyPI wheel build. SmartHub's tools/*.md files are NOT redundant with ha-mcp bundled content (because there is none) — they may or may not be redundant with what the LLM can infer from raw MCP tool schemas, which is a different question requiring separate analysis.",
+      "upstream_implication": "Potential ha-mcp packaging bug — the code paths (ENABLE_SKILLS, _register_skills, _build_skills_instructions) all exist but never fire because the submodule isn't in the wheel. Worth reporting to homeassistant-ai/ha-mcp if not already known. Out of scope for this workflow."
+    },
+    {
+      "id": "D2",
+      "stage": "implement",
+      "phase": "phase-0-baseline",
+      "date": "2026-04-10",
+      "summary": "Pre-cut baseline metrics for the three files P1/P2/P3 will touch",
+      "wc_l": {
+        "tools/_ha-mcp.md": 45,
+        "tools/_common.md": 54,
+        "tools/_services.md": 85,
+        "total": 184
+      },
+      "stat_bytes": {
+        "tools/_ha-mcp.md": 1247,
+        "tools/_common.md": 1071,
+        "tools/_services.md": 2504,
+        "total": 4822
+      },
+      "purpose": "Delta gate for Phase 5 validation: line delta >=100, byte delta >=3072 (3 KB)"
+    }
+  ],
+  "learnings_captured": [],
+  "user_decisions": {
+    "date": "2026-04-10",
+    "approved_stage_2": true,
+    "approval_note": "User said 'i want you to go' after reviewing the Stage 1 summary. Proceed to Stage 2 (plan the cuts).",
+    "ha_mcp_packaging_bug_upstream": "DEFER — memory-only note, do NOT file on homeassistant-ai/ha-mcp repo. Rationale: not blocking SmartHub, user has grading deadline next week, good-citizen chore work that does not help the demo.",
+    "deeper_audit_reference_integrations_guide": "DEFER — ship the current ~120-line cut first, measure whether latency actually improved, only line-audit _reference.md (473 lines) and integrations/_guide.md (252 lines) if the modest cut did not move the needle. Rationale: avoid wasted work, highest-yield-first."
+  },
+  "next_action": {
+    "stage": "implement",
+    "subagent_budget_status": "Tier 1 budget of 0-2 subagents is SPENT (2/2 used in Stage 1). Stage 3 should also run INLINE via superpowers:executing-plans, NOT subagent-driven-development.",
+    "instructions": [
+      "Step 1: Wait for user's explicit approval of the plan at docs/rdw-skill-audit-plan.md. Do NOT auto-advance to implementation.",
+      "Step 2: Once approved, invoke superpowers:executing-plans skill via the Skill tool.",
+      "Step 3: Execute Phase 0 first (baseline capture), commit, wait for user ack, then Phase 1 (delete _ha-mcp.md), etc. Pause after each phase commit for user review — this is Tier 1 inline execution with per-phase checkpoints.",
+      "Step 4: After each phase, update docs/rdw-state-skill-audit.json: append phase id to phases.completed, advance phases.current, append review_log entry.",
+      "Step 5: At Phase 5 (validation), if line delta <50, STOP per abort condition — do not proceed to smoke tests, update state to 'aborted_under_floor', and ask user whether to revert.",
+      "Step 6: Phase 5 smoke tests require a LIVE SmartHub session. Print the three prompts to the user and wait for PASS/FAIL reports — the agent cannot run them itself.",
+      "Step 7: If all gates pass, proceed to Stage 5 (memory-capture skill) to scan for non-obvious learnings (D1 packaging bug, quirks-inventory-as-test pattern)."
+    ],
+    "key_context_to_preserve_across_compaction": {
+      "discovery_d1_summary": "ha-mcp 7.2.0 PyPI wheel ships ZERO bundled skill markdown files (resources/skills-vendor/ submodule is stripped from wheel build). Original audit premise 'SmartHub tools/ files are redundant with ha-mcp bundled skills' is FALSE. Re-framed audit focuses on redundancy with raw MCP tool schemas instead.",
+      "four_findings_summary": "P1: delete tools/_ha-mcp.md (45 lines, 100% redundant, also has stale tool name ha_config_delete_automation -> real name is ha_config_remove_automation). P2: trim tools/_common.md lines 10-48 (keep 3-8 historical + 50-54 network). P3: restructure tools/_services.md to ~30 lines (delete service tables, preserve 8 enumerated quirks + brightness conversion). P4: append correction note to docs/superpowers/specs/2026-04-09-ha-mcp-integration-design.md at lines 496-504 about D1.",
+      "trimmable_estimate": "120-145 lines out of 951 total in six suspect files (~3-5 KB context savings, ~50-200 ms expected latency improvement)",
+      "abort_condition": "If Stage 2 planning refines the trim estimate below 50 lines total, STOP the workflow and recommend defer (option 3 from the original audit). Not worth the churn.",
+      "tier": "Tier 1 Light — markdown cleanup in local repo, trivially reversible via git, no staging/prod target",
+      "latency_motivation": "Memory note: both beta users complain SmartHub is slow, LLM round-trip is bottleneck. User's Reddit draft explicitly calls out '2-3 seconds per message' as an open problem they are flagging to testers. User is being graded on SmartHub next week."
+    }
+  }
+}
