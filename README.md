@@ -28,8 +28,8 @@ Control your Home Assistant with natural language through any messaging app supp
                                     │ MCP protocol (stdio)
                                     │
                         ┌────────────────────────┐
-                        │       ha-mcp           │
-                        │   (87 structured tools) │
+                        │       ha-mcp 7.2.0     │
+                        │  (~90 structured tools)│
                         │                        │
                         │  WebSocket to HA,      │
                         │  state verification,   │
@@ -147,14 +147,20 @@ home-assistant/
 ├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
 ├── TOOLS.md                     # Skill router — maps devices to files
 ├── docker-compose.yml           # Runs Home Assistant
-├── .env                         # HA token, timezone
+├── install.sh                   # One-command installer (clone, port-resolve, wire ha-mcp)
+├── .env.example                 # Template — copy to .env, fill in HA_TOKEN
 ├── .claude/
-│   └── settings.json            # ha-mcp MCP server config (interim bridge)
+│   └── settings.json            # ha-mcp MCP server + PreToolUse approval hook
+│
+├── scripts/
+│   └── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
+│                                # explicitly confirmed in their latest message
 │
 ├── tools/                       # Skill files — the agent's knowledge base
+│   ├── setup.md                 #   First-run setup flow (Docker → HA → token → .env)
 │   ├── _common.md               #   ha-mcp tool patterns, network info
 │   ├── _errors.md               #   Error handling & recovery
-│   ├── _services.md             #   Services by domain (light, climate, etc.)
+│   ├── _services.md             #   Domain quirks (HVAC modes, brightness 0-255, etc.)
 │   ├── integrations/
 │   │   └── _guide.md            #   Integration setup (HACS, config flows, OAuth)
 │   ├── automations/
@@ -168,7 +174,7 @@ home-assistant/
 │   └── printer/
 │       └── office-printer.md    #   CUPS printer setup
 │
-├── ha-config/                   # HA configuration (Docker volume)
+├── ha-config/                   # HA configuration (Docker volume, gitignored)
 └── docs/                        # Research, specs, design docs
 ```
 
@@ -177,18 +183,29 @@ home-assistant/
 ```
 CLAUDE.md (always loaded)
     │
-    ├─ "Before controlling a device" ──→ reads tools/_common.md for ha-mcp patterns
-    │                                     then reads device skill file for commands
+    ├─ First-run check fails ────────→ reads tools/setup.md
+    │                                   (Docker / HA / token / .env bootstrap)
     │
-    ├─ "Before creating automation" ───→ reads tools/automations/_guide.md
+    ├─ "Before controlling a device" → reads tools/_common.md for ha-mcp patterns
+    │                                   then device skill file for commands & quirks
+    │                                   then tools/_services.md if unsure about a service
+    │                                   then tools/_errors.md if a call fails
     │
-    └─ "Before adding integration" ────→ reads tools/integrations/_guide.md
+    ├─ "Before creating automation" ─→ reads tools/automations/_guide.md
+    │                                   then _reference.md for JSON schema
+    │
+    └─ "Before adding integration" ──→ reads tools/integrations/_guide.md
 
 TOOLS.md (loaded on demand)
     └─ Quick Reference table maps device names → skill files
+
+Destructive ha-mcp calls (create/modify/delete automations, scripts, integrations,
+devices, backups, restarts, HACS downloads)
+    └─ scripts/approval-gate.py runs as a Claude Code PreToolUse hook and blocks
+       the call unless the user's latest message is an explicit "yes / confirm"
 ```
 
-Skill files are loaded **on demand**, not all at once. The agent only reads what it needs for the current task.
+Skill files are loaded **on demand**, not all at once. The agent only reads what it needs for the current task — this keeps the LLM context small and replies fast.
 
 ---
 
