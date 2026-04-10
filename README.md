@@ -140,6 +140,35 @@ Talk to OpenClaw naturally:
 
 ---
 
+## Safety
+
+Destructive actions are protected by **two layers**:
+
+1. **`CLAUDE.md` rule** — the agent is told to show you a summary and wait for an explicit "yes" before any persistent change. A soft hint; the model usually follows it, but can rationalize past it under pressure.
+2. **`scripts/approval-gate.py` hook** — a Claude Code PreToolUse hook that reads your latest message and **denies the call unless it contains an affirmative** (`yes`, `confirm`, `ok`, `好`, `sí`, `はい`, …). Deterministic — fires regardless of model or permission mode.
+
+**What's gated:**
+
+| Category | Examples |
+|----------|----------|
+| Automations & Scripts | create, modify, delete |
+| Integrations | add, remove, enable/disable |
+| Devices | remove, rename, update |
+| System | restart, reload core, backup restore |
+| HACS | add repository, download |
+
+Non-destructive actions (turning on lights, setting AC, reading state) run without confirmation — only changes that persist across restarts are gated.
+
+**How it works:** The hook is wired in `.claude/settings.json` to match the destructive tool names above. On each matched call, it reads the conversation transcript, pulls your last message, and checks it against the affirmative patterns. No match → deny → the agent has to show a summary and ask first.
+
+**Example — creating an automation:**
+
+![Confirmation flow in Discord](docs/example-review.png)
+
+The agent shows a summary, waits for "yes", then executes. Skip the "yes" and the hook blocks the call.
+
+---
+
 ## Project Structure
 
 ```
