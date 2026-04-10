@@ -1,7 +1,7 @@
 {
   "workflow_id": "rdw-20260410-skill-audit",
   "started": "2026-04-10T00:00:00Z",
-  "current_stage": "implement_phase_1_complete",
+  "current_stage": "implement_phase_2_complete",
   "artifacts": {
     "issue_doc": "docs/rdw-skill-audit.md",
     "plan_doc": "docs/rdw-skill-audit-plan.md",
@@ -10,8 +10,8 @@
   "stages_completed": ["document", "plan"],
   "phases": {
     "total": 6,
-    "completed": ["phase-0-baseline", "phase-1-delete-ha-mcp-md"],
-    "current": "phase-2-trim-common-md",
+    "completed": ["phase-0-baseline", "phase-1-delete-ha-mcp-md", "phase-2-trim-common-md"],
+    "current": "phase-3-rewrite-services-md",
     "failed": []
   },
   "review_log": [
@@ -50,6 +50,12 @@
       "round": 1,
       "result": "PASS",
       "note": "tools/_ha-mcp.md deleted (-45 lines, -1247 bytes). TOOLS.md Quick Reference dropped from 12 to 11 rows. README.md tree-diagram row also removed (scoped extension discovered during Task 1.1 grep). Zero live references remain — all surviving grep matches are in workflow docs or historical migration docs, as expected. Commit: a9bbf24."
+    },
+    {
+      "stage": "implement-phase-2",
+      "round": 1,
+      "result": "PASS",
+      "note": "tools/_common.md trimmed from 54 lines/1071 bytes to 14 lines/520 bytes (-40 lines, -551 bytes). Commonly Used Tools section removed. All 4 preserved strings grep-verified post-edit: 'No curl. No API routing.', 'HOMEASSISTANT_TOKEN', 'homeassistant.local', 'Network Info'. 'Commonly Used Tools' and 'ha_search_entities' grep returns 0 (removed). Commit: 2d9980d."
     }
   ],
   "tier": 1,
