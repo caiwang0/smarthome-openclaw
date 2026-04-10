@@ -51,27 +51,28 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-echo "Configuring bootstrap-extra-files hook..."
+echo "Patching openclaw.json (bootstrap files + ACPX cwd + model)..."
 
 python3 -c "
 import json, sys
 
 config_path = '$CONFIG_FILE'
+target = '$TARGET'
 
 with open(config_path, 'r') as f:
     config = json.load(f)
 
-# Ensure hooks.internal.entries exists
+# --- 1. Configure bootstrap-extra-files hook ---
+# OpenClaw reads these files into every new session so the bot has CLAUDE.md
+# rules + TOOLS.md router loaded without the user having to ask.
 hooks = config.setdefault('hooks', {})
 internal = hooks.setdefault('internal', {'enabled': True})
 internal['enabled'] = True
 entries = internal.setdefault('entries', {})
 
-# Configure bootstrap-extra-files
 bef = entries.get('bootstrap-extra-files', {})
 bef['enabled'] = True
 
-# Merge paths — keep existing, add ours if missing
 existing_paths = bef.get('paths', [])
 our_paths = [
     '$REPO_DIR/CLAUDE.md',
@@ -84,10 +85,53 @@ for p in our_paths:
 bef['paths'] = existing_paths
 entries['bootstrap-extra-files'] = bef
 
+# --- 2. Pin ACPX cwd to the repo subdir ---
+# OpenClaw's ACPX plugin defaults cwd to agents.defaults.workspace (the
+# workspace root), not the repo subdir. Claude Code then fails to find
+# .claude/settings.json and \$CLAUDE_PROJECT_DIR resolves one level too
+# high, so the PreToolUse approval-gate hook never fires and destructive
+# ha-mcp calls (remove_automation etc.) slip past without confirmation.
+plugins = config.setdefault('plugins', {})
+plugin_entries = plugins.setdefault('entries', {})
+acpx = plugin_entries.setdefault('acpx', {})
+acpx.setdefault('enabled', True)
+acpx_cfg = acpx.setdefault('config', {})
+old_cwd = acpx_cfg.get('cwd', '(unset)')
+acpx_cfg['cwd'] = target
+if old_cwd != target:
+    print('  ACPX cwd: ' + old_cwd + ' -> ' + target)
+else:
+    print('  ACPX cwd: already correct (' + target + ')')
+
+# --- 3. Upgrade model if unset or Haiku ---
+# Haiku ignores CRITICAL confirmation rules in CLAUDE.md. Sonnet is more
+# reliable as the soft-rule first line of defense; the PreToolUse hook
+# remains the authoritative deterministic gate regardless.
+agents = config.setdefault('agents', {})
+agents_defaults = agents.setdefault('defaults', {})
+model = agents_defaults.setdefault('model', {})
+current_primary = model.get('primary', '')
+if not current_primary or 'haiku' in current_primary.lower():
+    old = current_primary or '(unset)'
+    model['primary'] = 'claude-cli/claude-sonnet-4-6'
+    print('  Model: ' + old + ' -> claude-cli/claude-sonnet-4-6')
+else:
+    print('  Model: keeping ' + current_primary + ' (not Haiku)')
+
+# --- 4. Clean up stale mcp.servers.ha-mcp ---
+# Older install.sh versions wrote ha-mcp to openclaw.json mcp.servers AND
+# .claude/settings.json. Dual registration means two ha-mcp subprocesses
+# competing for the same HA WebSocket. The repo's .claude/settings.json
+# is now the single source of truth; remove any stale duplicate.
+mcp_section = config.get('mcp')
+if mcp_section and 'servers' in mcp_section and 'ha-mcp' in mcp_section['servers']:
+    del mcp_section['servers']['ha-mcp']
+    print('  Removed stale mcp.servers.ha-mcp (moved to .claude/settings.json)')
+
 with open(config_path, 'w') as f:
     json.dump(config, f, indent=2)
 
-print('  Added:', ', '.join(our_paths))
+print('  Added bootstrap paths:', ', '.join(our_paths))
 "
 
 # --- Create .env and resolve port conflicts ---
@@ -146,70 +190,19 @@ export PATH="$HOME/.local/bin:$PATH"
 echo "Verifying ha-mcp installation..."
 uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "ha-mcp OK" || echo "WARNING: ha-mcp verification failed"
 
-# --- Configure MCP server ---
-cd "$TARGET"
-if openclaw mcp list 2>/dev/null; then
-  echo "Configuring ha-mcp in openclaw.json (native MCP)..."
-  python3 -c "
-import json
-
-config_path = '$CONFIG_FILE'
-with open(config_path, 'r') as f:
-    config = json.load(f)
-
-mcp = config.setdefault('mcp', {})
-servers = mcp.setdefault('servers', {})
-servers['ha-mcp'] = {
-    'command': 'uvx',
-    'args': ['ha-mcp@7.2.0'],
-    'env': {
-        'HOMEASSISTANT_URL': '\${HA_URL}',
-        'HOMEASSISTANT_TOKEN': '\${HA_TOKEN}',
-        'ENABLE_SKILLS': 'true',
-        'ENABLE_SKILLS_AS_TOOLS': 'true',
-        'ENABLE_TOOL_SEARCH': 'true',
-        'ENABLE_WEBSOCKET': 'true'
-    }
-}
-
-with open(config_path, 'w') as f:
-    json.dump(config, f, indent=2)
-print('  Configured ha-mcp in openclaw.json')
-"
+# --- Verify .claude/settings.json is on disk ---
+# The ha-mcp MCP server definition + PreToolUse approval-gate hook registration
+# are both committed in the repo at .claude/settings.json. install.sh no longer
+# generates this file at runtime — we rely on the committed version as the
+# single source of truth (avoids drift between install.sh heredoc and the
+# checked-in file, and prevents dual ha-mcp registration). The ACPX cwd fix
+# above is what makes Claude Code actually read this file.
+if [ -f "$TARGET/.claude/settings.json" ]; then
+  echo "Verified $TARGET/.claude/settings.json (ha-mcp server + approval-gate hook)."
 else
-  echo "Configuring ha-mcp in .claude/settings.json (Claude Code bridge)..."
-  mkdir -p "$TARGET/.claude"
-  cat > "$TARGET/.claude/settings.json" << 'MCPEOF'
-{
-  "mcpServers": {
-    "ha-mcp": {
-      "command": "uvx",
-      "args": ["ha-mcp@7.2.0"],
-      "env": {
-        "HOMEASSISTANT_URL": "${HA_URL}",
-        "HOMEASSISTANT_TOKEN": "${HA_TOKEN}",
-        "ENABLE_SKILLS": "true",
-        "ENABLE_SKILLS_AS_TOOLS": "true",
-        "ENABLE_TOOL_SEARCH": "true",
-        "ENABLE_WEBSOCKET": "true"
-      }
-    }
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "mcp__ha-mcp__(ha_config_set_automation|ha_config_remove_automation|ha_config_set_script|ha_config_remove_script|ha_delete_config_entry|ha_set_integration_enabled|ha_remove_device|ha_update_device|ha_rename_entity|ha_restart|ha_reload_core|ha_backup_restore|ha_hacs_download|ha_hacs_add_repository)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/approval-gate.py"
-          }
-        ]
-      }
-    ]
-  }
-}
-MCPEOF
+  echo "ERROR: $TARGET/.claude/settings.json is missing."
+  echo "It should be committed in the repo. Re-clone or check git status in $TARGET."
+  exit 1
 fi
 
 # NOTE: Do NOT restart the gateway here. The current session is running
