@@ -110,7 +110,7 @@ OpenClaw: Let's get your smart home running. Do you have Docker installed?
 
 You:      Docker version 27.5.1
 OpenClaw: Docker is ready. Starting Home Assistant...
-          Done. Open http://192.168.2.97:8123 in your browser.
+          Done. Open http://homeassistant.local:8123 in your browser.
           Create your admin account and let me know when you're done.
 
 You:      Done, created user "alice"

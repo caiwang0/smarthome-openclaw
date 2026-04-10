@@ -9,4 +9,4 @@ services:
     privileged: true
     network_mode: host
     environment:
-      TZ: ${TZ:-Asia/Kuala_Lumpur}
+      TZ: ${TZ:-UTC}

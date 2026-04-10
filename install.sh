@@ -163,7 +163,7 @@ servers['ha-mcp'] = {
     'command': 'uvx',
     'args': ['ha-mcp@7.2.0'],
     'env': {
-        'HOMEASSISTANT_URL': 'http://localhost:8123',
+        'HOMEASSISTANT_URL': '\${HA_URL}',
         'HOMEASSISTANT_TOKEN': '\${HA_TOKEN}',
         'ENABLE_SKILLS': 'true',
         'ENABLE_SKILLS_AS_TOOLS': 'true',
@@ -194,6 +194,19 @@ else
         "ENABLE_WEBSOCKET": "true"
       }
     }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__ha-mcp__(ha_config_set_automation|ha_config_remove_automation|ha_config_set_script|ha_config_remove_script|ha_delete_config_entry|ha_set_integration_enabled|ha_remove_device|ha_update_device|ha_rename_entity|ha_restart|ha_reload_core|ha_backup_restore|ha_hacs_download|ha_hacs_add_repository)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/approval-gate.py"
+          }
+        ]
+      }
+    ]
   }
 }
 MCPEOF

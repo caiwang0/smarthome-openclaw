@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+.mcp.json
 ha-config/
 *.log
 .DS_Store
