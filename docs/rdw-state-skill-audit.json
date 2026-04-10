@@ -1,17 +1,18 @@
 {
   "workflow_id": "rdw-20260410-skill-audit",
   "started": "2026-04-10T00:00:00Z",
-  "current_stage": "validate_complete_automated_gates",
+  "current_stage": "complete",
+  "completed_at": "2026-04-10T16:05:00Z",
   "artifacts": {
     "issue_doc": "docs/rdw-skill-audit.md",
     "plan_doc": "docs/rdw-skill-audit-plan.md",
     "validation_report": "inline in review_log phase-5 entry (Tier 1, no separate report doc)"
   },
-  "stages_completed": ["document", "plan"],
+  "stages_completed": ["document", "plan", "implement", "validate", "learn"],
   "phases": {
     "total": 6,
-    "completed": ["phase-0-baseline", "phase-1-delete-ha-mcp-md", "phase-2-trim-common-md", "phase-3-rewrite-services-md", "phase-4-correction-note"],
-    "current": "phase-5-validation",
+    "completed": ["phase-0-baseline", "phase-1-delete-ha-mcp-md", "phase-2-trim-common-md", "phase-3-rewrite-services-md", "phase-4-correction-note", "phase-5-validation"],
+    "current": null,
     "failed": []
   },
   "review_log": [
@@ -98,6 +99,17 @@
         "set AC to 24 degrees (HVAC mode quirk)"
       ],
       "next_action": "Present smoke tests to user in live SmartHub session, wait for PASS/FAIL report"
+    },
+    {
+      "stage": "validate",
+      "round": 2,
+      "result": "PASS",
+      "smoke_tests": {
+        "turn_on_tv": "PASS",
+        "dim_lights_50": "PASS",
+        "set_ac_24": "PASS"
+      },
+      "note": "User reported 'pass' for all three smoke tests in live SmartHub session on 2026-04-10. All gates cleared: line delta 148 >= 100 (3x above 50 abort floor), byte delta 2732 near-miss on 3072 but acceptable per investigation (quirks-dense preserved content in _services.md), 3/3 smoke tests verified the TV tool discovery, brightness conversion, and HVAC mode quirks all survived the rewrites. Workflow advances to Stage 5 memory capture."
     }
   ],
   "tier": 1,
@@ -140,7 +152,20 @@
       "purpose": "Delta gate for Phase 5 validation: line delta >=100, byte delta >=3072 (3 KB)"
     }
   ],
-  "learnings_captured": [],
+  "learnings_captured": [
+    {
+      "memory_file": "reference_ha_mcp_wheel_no_skills.md",
+      "type": "reference",
+      "source": "D1",
+      "note": "ha-mcp 7.2.0 PyPI wheel ships zero bundled skill markdown files. Future Claude sessions should not propose SmartHub<->ha-mcp dedup against bundled skills — the dedup target is raw MCP tool schemas."
+    },
+    {
+      "memory_file": "feedback_quirks_inventory_test.md",
+      "type": "feedback",
+      "source": "quirks-inventory pattern used successfully in Phase 3 _services.md rewrite (8/8 grep-verified)",
+      "note": "Pre-enumerated grep inventory as compound test for lossy markdown rewrites. Use for any high-volume cut (>20 lines) to a file carrying enumerable domain knowledge."
+    }
+  ],
   "user_decisions": {
     "date": "2026-04-10",
     "approved_stage_2": true,
