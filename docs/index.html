@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartHub — AI-Powered Smart Home</title>
+  <meta name="description" content="Control your smart home with natural language. Works with Discord, Telegram, WhatsApp, Feishu. Open source, runs locally on a Raspberry Pi.">
+  <meta property="og:title" content="SmartHub — AI-Powered Smart Home">
+  <meta property="og:description" content="Control your smart home with natural language. Works with Discord, Telegram, WhatsApp, Feishu. Open source, runs locally on a Raspberry Pi.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="img/example-automation.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #06080f;
+  --surface: #0d1117;
+  --surface-raised: #131a24;
+  --border: rgba(255,255,255,0.06);
+  --border-hover: rgba(129,140,248,0.4);
+  --primary: #818cf8;
+  --primary-dim: #6366f1;
+  --accent: #c4b5fd;
+  --glow: rgba(129,140,248,0.15);
+  --text: #e8ecf4;
+  --text-mid: #b0b8c9;
+  --text-muted: #6b7a90;
+  --radius: 14px;
+  --radius-lg: 20px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Manrope', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- NAV ---- */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeDown 0.8s ease both;
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+.logo span { color: var(--primary); }
+
+.nav-links { display: flex; align-items: center; gap: 0.25rem; }
+
+.nav-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: color 0.25s, background 0.25s;
+}
+
+.nav-links a:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.04);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--primary-dim);
+  color: #fff;
+  padding: 0.7rem 1.6rem;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.btn:hover {
+  background: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(99,102,241,0.3);
+}
+
+.btn:hover::before { opacity: 1; }
+
+.btn-sm {
+  padding: 0.5rem 1.2rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+}
+
+.btn-ghost:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border-hover);
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---- SECTION COMMON ---- */
+.section-label {
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+  margin-bottom: 3rem;
+}
+
+/* ---- HERO ---- */
+.hero {
+  text-align: center;
+  padding: 6rem 2rem 3rem;
+  max-width: 760px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(129,140,248,0.08);
+  border: 1px solid rgba(129,140,248,0.15);
+  border-radius: 100px;
+  padding: 0.35rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 2rem;
+  animation: fadeUp 0.7s 0.1s ease both;
+}
+
+.hero h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 4rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  margin-bottom: 1.5rem;
+  animation: fadeUp 0.7s 0.2s ease both;
+}
+
+.hero h1 .gradient {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 50%, #f0abfc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  max-width: 500px;
+  margin: 0 auto 2.25rem;
+  line-height: 1.7;
+  animation: fadeUp 0.7s 0.3s ease both;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  animation: fadeUp 0.7s 0.4s ease both;
+}
+
+.hero-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 1.25rem;
+  animation: fadeUp 0.7s 0.5s ease both;
+}
+
+/* ---- HOW IT WORKS ---- */
+.how-it-works {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 7rem 2rem 2rem;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  position: relative;
+}
+
+.steps::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: 16%;
+  right: 16%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-hover), var(--border-hover), transparent);
+}
+
+.step {
+  text-align: center;
+  position: relative;
+}
+
+.step-num {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin: 0 auto 1.25rem;
+  position: relative;
+  z-index: 1;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.step:hover .step-num {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 24px var(--glow);
+}
+
+.step h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  letter-spacing: -0.3px;
+}
+
+.step p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 220px;
+  margin: 0 auto;
+}
+
+/* ---- EXAMPLES ---- */
+.examples {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 5rem 2rem;
+}
+
+.example {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 2.5rem;
+  align-items: center;
+  margin-bottom: 4rem;
+}
+
+.example:nth-child(even) .example-text { order: 2; }
+.example:nth-child(even) .example-img  { order: 1; }
+
+.example-text .example-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--primary);
+  margin-bottom: 0.75rem;
+}
+
+.example-text h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 0.6rem;
+  line-height: 1.2;
+}
+
+.example-text p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+}
+
+.chat-snippet {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-msg {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.chat-msg.user {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.chat-msg.user::before {
+  content: 'You: ';
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.chat-msg.bot {
+  color: var(--text-mid);
+}
+
+.chat-msg.bot::before {
+  content: 'AI: ';
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.example-img img {
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px -15px rgba(0,0,0,0.5);
+  transition: border-color 0.3s, transform 0.3s;
+}
+
+.example-img img:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-3px);
+}
+
+.example-img video {
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px -15px rgba(0,0,0,0.5);
+  background: var(--surface);
+  transition: border-color 0.3s, transform 0.3s;
+}
+
+.example-img video:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-3px);
+}
+
+/* ---- COMMANDS ---- */
+.commands {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 2rem 5rem;
+}
+
+.commands-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.command {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  transition: border-color 0.3s;
+}
+
+.command:hover { border-color: var(--border-hover); }
+
+.command-say {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+}
+
+.command-does {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ---- FEATURES ---- */
+.features {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 5rem 2rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.feature {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+
+.feature:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+
+.feature-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(129,140,248,0.08);
+  font-size: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.feature h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.3px;
+}
+
+.feature p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ---- SECURITY NOTICE ---- */
+.security-notice {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 5rem 2rem 2rem;
+  position: relative;
+}
+
+.security-notice::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+.security-card {
+  background: var(--surface);
+  border: 1px solid rgba(250,204,21,0.2);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.security-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(250,204,21,0.4), transparent);
+}
+
+.security-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.security-card-header .icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(250,204,21,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.security-card-header h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.security-card > p {
+  font-size: 0.88rem;
+  color: var(--text-mid);
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
+}
+
+.security-checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.security-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.security-checklist li .check {
+  color: rgba(250,204,21,0.7);
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.security-screenshot {
+  margin-top: 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.security-screenshot:hover {
+  border-color: var(--border-hover);
+}
+
+.security-screenshot img {
+  width: 100%;
+  display: block;
+}
+
+.security-screenshot-caption {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 0.6rem;
+  font-style: italic;
+}
+
+.security-card + .security-card {
+  margin-top: 1.5rem;
+}
+
+.security-card.variant-green {
+  border-color: rgba(74,222,128,0.2);
+}
+
+.security-card.variant-green::before {
+  background: linear-gradient(90deg, transparent, rgba(74,222,128,0.4), transparent);
+}
+
+.security-card.variant-green .security-card-header .icon {
+  background: rgba(74,222,128,0.1);
+}
+
+.security-card.variant-green .security-checklist li .check {
+  color: rgba(74,222,128,0.7);
+}
+
+/* ---- QUICKSTART ---- */
+.quickstart {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 5rem 2rem;
+  position: relative;
+}
+
+.quickstart::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+.quickstart-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.quickstart-header h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 0.5rem;
+}
+
+.quickstart-header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.qs-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.qs-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 1rem;
+  align-items: start;
+  transition: border-color 0.3s;
+}
+
+.qs-step:hover { border-color: var(--border-hover); }
+
+.qs-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(129,140,248,0.1);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.qs-step h4 {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.qs-step p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 0.6rem;
+}
+
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.75rem;
+  color: var(--text-mid);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.qs-note {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 1.5rem;
+}
+
+/* ---- CTA ---- */
+.cta {
+  text-align: center;
+  padding: 5rem 2rem 6rem;
+  max-width: 560px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.cta::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+.cta h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 0.75rem;
+  line-height: 1.15;
+}
+
+.cta p {
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+}
+
+/* ---- FOOTER ---- */
+footer {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  border-top: 1px solid var(--border);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+footer a {
+  color: var(--text-mid);
+  text-decoration: none;
+}
+
+footer a:hover { color: var(--primary); }
+
+/* ---- ANIMATIONS ---- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 768px) {
+  .hero { padding: 4rem 1.5rem 2rem; }
+  .hero h1 { font-size: 2.5rem; letter-spacing: -1px; }
+.features-grid { grid-template-columns: 1fr; }
+  .hero-actions { flex-direction: column; }
+  .cta h2 { font-size: 1.75rem; }
+  .steps { grid-template-columns: 1fr; gap: 1.5rem; }
+  .steps::before { display: none; }
+  .example { grid-template-columns: 1fr; gap: 1.5rem; }
+  .example:nth-child(even) .example-text { order: 1; }
+  .example:nth-child(even) .example-img  { order: 2; }
+  .commands-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .hero h1 { font-size: 2rem; }
+  nav { flex-direction: column; gap: 1rem; }
+  .nav-links { gap: 0; }
+}
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="logo">Smart<span>Hub</span></div>
+    <div class="nav-links">
+      <a href="#how-it-works">How It Works</a>
+      <a href="#examples">Examples</a>
+      <a href="#security">Security</a>
+      <a href="#get-started">Get Started</a>
+      <a href="https://github.com/caiwang0/smarthome-openclaw" class="btn btn-sm btn-ghost">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-badge">Open Source &middot; Local-first</div>
+    <h1>Your smart home,<br><span class="gradient">controlled by AI</span></h1>
+    <p>One place for every device. No app switching, no YAML. Tell SmartHub what you want and it handles the rest.</p>
+    <div class="hero-actions">
+      <a href="#get-started" class="btn">Get Started &rarr;</a>
+      <a href="#how-it-works" class="btn btn-ghost">Learn More</a>
+    </div>
+    <div class="hero-sub">Free forever &middot; Runs on a Raspberry Pi</div>
+  </section>
+
+
+  <!-- How It Works -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-label">How It Works</div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">&#x1F4AC;</div>
+        <h3>Say It</h3>
+        <p>Type what you want in Discord, Teams, or Feishu. Plain English, plain Chinese &mdash; anything.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">&#x1F9E0;</div>
+        <h3>AI Gets It</h3>
+        <p>OpenClaw understands your intent, picks the right devices, and plans the actions.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">&#x1F3E0;</div>
+        <h3>Home Does It</h3>
+        <p>Devices respond instantly. You get a confirmation of exactly what happened.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Examples -->
+  <section class="examples" id="examples">
+    <div class="section-label">See It In Action</div>
+
+    <!-- Video: Setup & Automation -->
+    <div class="example reveal">
+      <div class="example-text">
+        <div class="example-tag">Setup Walkthrough</div>
+        <h3>From zero to smart home in one conversation</h3>
+        <p>Watch the AI install Docker, start Home Assistant, connect devices, and create your first automation &mdash; all from a single Discord chat.</p>
+        <div class="chat-snippet">
+          <div class="chat-msg user">Help me set up SmartHub</div>
+          <div class="chat-msg bot">Let's get your smart home running. Do you have Docker installed?</div>
+        </div>
+      </div>
+      <div class="example-img">
+        <video controls preload="metadata">
+          <source src="img/Setup_Automation_v2.mp4" type="video/mp4">
+        </video>
+      </div>
+    </div>
+
+    <!-- Example 1: Adding Devices -->
+    <div class="example reveal">
+      <div class="example-text">
+        <div class="example-tag">Adding Devices</div>
+        <h3>One message to connect every device</h3>
+        <p>The AI checks what's needed, installs integrations, handles OAuth login, discovers your devices, and assigns them to rooms &mdash; all through chat.</p>
+        <div class="chat-snippet">
+          <div class="chat-msg user">connect my xiaomi home</div>
+          <div class="chat-msg bot">Xiaomi Home isn't installed yet. Let me check what's needed&hellip;</div>
+          <div class="chat-msg bot">Which cloud region are your Xiaomi devices?</div>
+        </div>
+      </div>
+      <div class="example-img">
+        <img src="img/example-integration.png" alt="Discord conversation showing AI-guided Xiaomi device setup" loading="lazy">
+        <img src="img/example-integration1.png" alt="Discord conversation showing successful device authentication and discovery" loading="lazy" style="margin-top: 0.75rem;">
+      </div>
+    </div>
+
+    <!-- Example 2: Automation -->
+    <div class="example reveal">
+      <div class="example-text">
+        <div class="example-tag">Automation</div>
+        <h3>"Turn off the TV at 3pm" &mdash; done</h3>
+        <p>Tell SmartHub what you want to automate in plain language. It figures out the schedule, the devices, and creates the automation for you.</p>
+        <div class="chat-snippet">
+          <div class="chat-msg user">turn off the tv at 3:29pm sgt every day</div>
+          <div class="chat-msg bot">TV will turn off every day at 3:29 PM SGT. Want me to create it?</div>
+        </div>
+      </div>
+      <div class="example-img">
+        <img src="img/example-automation.png" alt="Discord conversation showing automation creation via natural language" loading="lazy">
+      </div>
+    </div>
+
+    <!-- Example 3: Beyond Smart Home -->
+    <div class="example reveal">
+      <div class="example-text">
+        <div class="example-tag">Beyond Smart Home</div>
+        <h3>Upload a PDF, say "print" &mdash; printed</h3>
+        <p>Need to print a document? The AI installs the printer driver, configures CUPS, and prints your file &mdash; just upload and say "print".</p>
+        <div class="chat-snippet">
+          <div class="chat-msg user">i have a pdf file, can you print it?</div>
+          <div class="chat-msg bot">Let me get CUPS installed and the printer configured&hellip;</div>
+        </div>
+      </div>
+      <div class="example-img">
+        <img src="img/example-controller.png" alt="Discord conversation showing AI setting up a printer and printing a file" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <!-- What You Can Say -->
+  <section class="commands">
+    <div class="section-label">Just Say It</div>
+    <div class="commands-grid">
+      <div class="command reveal">
+        <div class="command-say">"Turn off the living room lights"</div>
+        <div class="command-does">Controls the device instantly</div>
+      </div>
+      <div class="command reveal">
+        <div class="command-say">"Set the AC to 24"</div>
+        <div class="command-does">Adjusts climate settings</div>
+      </div>
+      <div class="command reveal">
+        <div class="command-say">"I'm leaving for work"</div>
+        <div class="command-does">Turns off lights, sets eco mode, locks doors</div>
+      </div>
+      <div class="command reveal">
+        <div class="command-say">"Why is the bedroom so hot?"</div>
+        <div class="command-does">Checks sensors and diagnoses the issue</div>
+      </div>
+      <div class="command reveal">
+        <div class="command-say">"Turn off the TV at 3pm every day"</div>
+        <div class="command-does">Creates a scheduled automation</div>
+      </div>
+      <div class="command reveal">
+        <div class="command-say">"Add Xiaomi Home"</div>
+        <div class="command-does">Walks you through integration setup</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="section-label">Why SmartHub</div>
+    <div class="features-grid">
+      <div class="feature reveal">
+        <div class="feature-icon">&#x1F50C;</div>
+        <h3>2,000+ Devices</h3>
+        <p>Xiaomi, Philips Hue, Samsung, Broadlink&mdash;auto-discovered. No manual setup.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">&#x1F916;</div>
+        <h3>Plain-English AI</h3>
+        <p>"Turn off the AC when I leave"&mdash;SmartHub builds the automation. No YAML.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">&#x1F512;</div>
+        <h3>Local. No Subscription.</h3>
+        <p>Your data stays home. Works when the internet is down. Free forever.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Security Notice -->
+  <section class="security-notice reveal" id="security">
+    <div class="security-card">
+      <div class="security-card-header">
+        <div class="icon">&#x1F6E1;</div>
+        <h3>The AI reviews scripts before running them</h3>
+      </div>
+      <p>OpenClaw's AI agent has built-in security checks. When you ask it to run install scripts or clone repos, it will inspect the contents first and may flag potential risks &mdash; like embedded instructions that try to influence its behavior. <strong style="color:var(--text)">This is a feature, not a bug.</strong></p>
+      <p style="margin-bottom:1rem">Before running anything, we recommend:</p>
+      <ul class="security-checklist">
+        <li><span class="check">&#x25B8;</span>Clone the repo yourself and review its contents &mdash; especially <code style="color:var(--primary);font-size:0.8rem">CLAUDE.md</code> and <code style="color:var(--primary);font-size:0.8rem">TOOLS.md</code></li>
+        <li><span class="check">&#x25B8;</span>Read any install script before piping it to your shell</li>
+        <li><span class="check">&#x25B8;</span>When the AI flags a warning, read it carefully &mdash; it will explain exactly what it found</li>
+        <li><span class="check">&#x25B8;</span>Decide intentionally whether to approve or deny each action</li>
+      </ul>
+      <div class="security-screenshot">
+        <img src="img/security-warning.png" alt="Screenshot of OpenClaw catching a prompt injection in an install script" loading="lazy">
+      </div>
+      <div class="security-screenshot-caption">OpenClaw flagging a suspicious script &mdash; the AI explains what it found and lets you decide</div>
+    </div>
+
+    <div class="security-card variant-green">
+      <div class="security-card-header">
+        <div class="icon">&#x2705;</div>
+        <h3>Every destructive action asks first</h3>
+      </div>
+      <p>SmartHub has two layers of protection. <code style="color:var(--primary);font-size:0.8rem">CLAUDE.md</code> tells the AI to show a summary and wait for your "yes" &mdash; a soft hint it usually follows. But models can rationalize past soft rules under pressure, so a deterministic PreToolUse hook (<code style="color:var(--primary);font-size:0.8rem">scripts/approval-gate.py</code>) reads your latest message and <strong style="color:var(--text)">denies the call unless it contains an explicit confirmation</strong> &mdash; regardless of model or permission mode.</p>
+      <p style="margin-bottom:1rem">What's gated:</p>
+      <ul class="security-checklist">
+        <li><span class="check">&#x25B8;</span>Automations &amp; scripts &mdash; create, modify, delete</li>
+        <li><span class="check">&#x25B8;</span>Integrations &mdash; add, remove, enable/disable</li>
+        <li><span class="check">&#x25B8;</span>Devices &mdash; remove, rename, update</li>
+        <li><span class="check">&#x25B8;</span>System &mdash; restart, reload core, backup restore</li>
+        <li><span class="check">&#x25B8;</span>HACS &mdash; download, add repository</li>
+      </ul>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-top:1rem;margin-bottom:0">Non-destructive actions (turning on lights, setting AC, reading sensors) run without confirmation.</p>
+      <div class="security-screenshot">
+        <img src="img/example-review.png" alt="Discord conversation showing the AI summarizing an automation and waiting for user confirmation before creating it" loading="lazy">
+      </div>
+      <div class="security-screenshot-caption">The AI summarizes the change and waits for "yes" before executing &mdash; even for commands that sound like authorization</div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="quickstart" id="get-started">
+    <div class="quickstart-header">
+      <div class="section-label">Get Started</div>
+      <h2>Three steps. The AI does the rest.</h2>
+      <p>Three steps, then the AI guides you through everything else.</p>
+    </div>
+    <div class="qs-steps">
+      <div class="qs-step reveal">
+        <div class="qs-num">1</div>
+        <div>
+          <h4>Install OpenClaw</h4>
+          <p>The AI agent framework that powers SmartHub.</p>
+          <div class="code-block" style="margin-bottom:0.4rem"><strong style="color:var(--text-muted);font-family:inherit;font-size:inherit;">macOS / Linux:</strong> curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta</div>
+          <div class="code-block"><strong style="color:var(--text-muted);font-family:inherit;font-size:inherit;">Windows:</strong> powershell -c "irm https://openclaw.ai/install.ps1 | iex"</div>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.6rem;line-height:1.5">&#x1F6E1; Your AI agent may show a security warning when running this script &mdash; that's expected. Review the <a href="#" style="color:var(--primary);text-decoration:none" onclick="document.querySelector('.security-notice').scrollIntoView({behavior:'smooth'});return false">security note above</a> for details.</p>
+        </div>
+      </div>
+      <div class="qs-step reveal">
+        <div class="qs-num">2</div>
+        <div>
+          <h4>Connect a messaging app</h4>
+          <p>Follow the <a href="https://docs.openclaw.ai/start/getting-started" style="color:var(--primary);text-decoration:none">OpenClaw Getting Started guide</a> to connect a bot to Discord, Telegram, WhatsApp, Feishu, or any supported platform.</p>
+        </div>
+      </div>
+      <div class="qs-step reveal">
+        <div class="qs-num">3</div>
+        <div>
+          <h4>Say "Help me set up SmartHub"</h4>
+          <p>Once your bot is online, message it and the AI runs the SmartHub installer, walks you through Docker, Home Assistant, and your first device integration &mdash; all from the chat.</p>
+        </div>
+      </div>
+    </div>
+    <div class="qs-note">Works with Discord, Telegram, WhatsApp, Feishu, and more &middot; Requires Docker and a Claude API key</div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <h2>Ready to simplify your smart home?</h2>
+    <p>Free, open-source, runs on hardware you already own. No cloud lock-in, no subscription &mdash; ever.</p>
+    <a href="https://github.com/caiwang0/smarthome-openclaw" class="btn">View on GitHub &rarr;</a>
+  </section>
+
+  <footer>
+    <a href="https://github.com/caiwang0/smarthome-openclaw">SmartHub</a> &mdash; open-source smart home, powered by AI
+  </footer>
+
+  <script>
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+  </script>
+
+</body>
+</html>
