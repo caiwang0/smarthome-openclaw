@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-PreToolUse approval gate for destructive ha-mcp tools.
+PreToolUse approval gate for persistent ha-mcp tools.
 
-Runs as a Claude Code PreToolUse hook. Blocks destructive ha-mcp tool calls
+Runs as a Claude Code PreToolUse hook. Blocks persistent ha-mcp tool calls
 unless the most recent user message is an explicit affirmative confirmation.
 
 Reads hook payload from stdin, writes a permissionDecision JSON to stdout.
 
 Why this exists:
-  The LLM-based rules in CLAUDE.md ("always confirm before destructive actions")
+  The LLM-based rules in CLAUDE.md ("always confirm before persistent actions")
   are inconsistent — the bot sometimes skips confirmation. ACPX runs Claude Code
   with permissionMode=approve-all, which bypasses Claude Code's built-in
   permission dialogs. This hook is a deterministic gate that fires regardless
   of permission mode.
 
 Scope:
-  Only gates tools that create/modify/delete persistent configuration
-  (automations, scripts, integrations, devices, backups, restarts). Does NOT
-  gate device control (ha_call_service, ha_bulk_control) — turning on a
-  light or setting AC temperature executes immediately.
+  Gates tools that create/modify/delete persistent configuration
+  (automations, scripts, integrations, config flows, devices, backups,
+  restarts). Does NOT gate device control (ha_call_service, ha_bulk_control)
+  — turning on a light or setting AC temperature executes immediately.
 """
 
 import json
@@ -36,6 +36,7 @@ GATED_TOOLS = frozenset({
     "mcp__ha-mcp__ha_config_set_script",
     "mcp__ha-mcp__ha_config_remove_script",
     # Integrations
+    "mcp__ha-mcp__ha_config_entries_flow",
     "mcp__ha-mcp__ha_delete_config_entry",
     "mcp__ha-mcp__ha_set_integration_enabled",
     # Devices
@@ -137,6 +138,18 @@ def is_confirmation(text: str) -> bool:
     return any(re.search(pat, normalized, re.IGNORECASE) for pat in CONFIRMATION_PATTERNS)
 
 
+def is_follow_up_config_flow(payload: dict) -> bool:
+    """Allow config-flow calls that are already inside an existing flow."""
+    if payload.get("tool_name") != "mcp__ha-mcp__ha_config_entries_flow":
+        return False
+
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return False
+
+    return "flow_id" in tool_input
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -145,7 +158,15 @@ def main() -> None:
         # the bot for non-destructive calls if the harness changes format.
         sys.exit(0)
 
+    if not isinstance(payload, dict):
+        # Unexpected payload shape — fail open so we do not block harmless calls.
+        sys.exit(0)
+
     tool_name = payload.get("tool_name", "")
+    if is_follow_up_config_flow(payload):
+        # Existing config-flow step — allow without a fresh confirmation.
+        sys.exit(0)
+
     if tool_name not in GATED_TOOLS:
         # Not a gated tool — allow silently
         sys.exit(0)
@@ -160,9 +181,9 @@ def main() -> None:
     # Block with instructions for the LLM
     tool_short = tool_name.replace("mcp__ha-mcp__", "")
     reason = (
-        f"Approval gate: '{tool_short}' is a destructive action and requires "
-        "explicit user confirmation. The last user message was not a clear "
-        "affirmative ('yes', '好', 'confirm', etc.).\n\n"
+        f"Approval gate: '{tool_short}' requires explicit user confirmation "
+        "before a persistent configuration action can proceed. The last user "
+        "message was not a clear affirmative ('yes', '好', 'confirm', etc.).\n\n"
         "REQUIRED STEPS before retrying:\n"
         "1. Send the user a concise summary of what this action will do "
         "(name, affected entities, schedule/triggers if applicable).\n"

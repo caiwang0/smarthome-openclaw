@@ -5,7 +5,7 @@ You help users control their devices, check status, and manage their smart home.
 
 ## First-Run Check
 
-**Before doing anything else, run ALL three checks:**
+**Before doing anything else, run ALL four checks:**
 
 ```bash
 # 1. Does .env exist with a real token?
@@ -24,6 +24,10 @@ fi
 # 3. Is ha-mcp installed and can it reach HA?
 HOMEASSISTANT_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2) HOMEASSISTANT_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2) uvx ha-mcp@7.2.0 --smoke-test 2>/dev/null && echo "MCP_OK" || echo "MCP_DOWN"
 ```
+
+# 4. Are there zero device-backed, non-system entities?
+Use `ha_search_entities` to confirm whether the instance has any device-backed, non-system entities.
+"No devices yet" means zero device-backed, non-system entities.
 
 **If ANY check fails**, the system is not fully set up. You MUST read `tools/setup.md` and follow it step by step. Do NOT improvise or ask your own questions — the setup skill has the exact flow. Skip steps that are already passing (e.g., if HA is running, skip the Docker step) but follow the skill for everything else.
 

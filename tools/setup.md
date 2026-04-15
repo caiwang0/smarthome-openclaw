@@ -244,9 +244,9 @@ This only verifies ha-mcp is installed (not HA connectivity). HA connectivity is
 
 ---
 
-## Step 9: Verify Connection
+## Step 9: Verify the first verified win
 
-Test that the full pipeline works by using `ha_search_entities` to list entities:
+Capture a pre-connection baseline before you count any success. Use `ha_search_entities` to list the current device-backed, non-system entities, and record those entity IDs as the baseline:
 
 ```
 Tool: ha_search_entities
@@ -255,23 +255,15 @@ Tool: ha_search_entities
 
 Tell the user what you find:
 
-- If entities are returned → "Connected! I found X entities."
-- If no entities → "Connected, but no devices yet. We can add integrations next."
+- If there are zero device-backed, non-system entities → "Connected, but zero device-backed, non-system entities yet. hand off into discovery via `tools/integrations/_discovery.md`."
+  Use the passive-first discovery entrypoint in `tools/integrations/_discovery.md`.
+- The newly added entity must be a device-backed, non-system entity that was not in the baseline.
+- Setup is only complete after discovery or integration setup adds one new non-system entity that is device-backed, and that device-backed, non-system entity was not in the baseline, and you can perform one verified read or control action on that newly added entity.
+- If discovery or integration setup adds one new non-system entity that is device-backed, and that device-backed, non-system entity was not in the baseline, and you can perform one verified read or control action on that newly added entity → "First verified win: one new non-system entity connected and verified. Stop here."
+- If the only entities you found were already in the baseline → do not count that as success. Hand off into discovery and wait for a newly added entity.
 - If an error → check `tools/_errors.md` for troubleshooting.
 
----
-
-## Step 10: Offer Next Steps
-
-Setup is complete. Ask the user:
-
-> ha-mcp is connected! Here's what we can do next:
->
-> 1. **Set up remote access** — I can create a public URL so you can access HA from anywhere
-> 2. **Add device integrations** — connect your Xiaomi, Philips Hue, Broadlink, or other smart devices
-> 3. **Just start using it** — ask me to control devices, check status, or create automations
->
-> What would you like to do?
+Do not offer a generic next-steps menu here. The flow stops after the first verified win.
 
 ---
 

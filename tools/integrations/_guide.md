@@ -2,6 +2,14 @@
 
 Every integration has its own setup flow with different steps and options. **Do NOT hardcode or assume what the options are.**
 
+### Discovery First
+
+Use `tools/integrations/_discovery.md` as the read-only entrypoint before any mutation step. It is passive-first: check existing HA signals first, then mDNS via `avahi-browse -atr`, then SSDP, and only fall back to `ip neigh`, `arp-scan`, and `nmap` when passive evidence is insufficient.
+
+Present the results as candidates, not as implied action requests. Do not start a new config flow or attempt an add-device action until the user explicitly confirms the candidate they want to connect.
+
+Selecting a discovered device candidate still requires explicit user confirmation before any add-device action. Discovery is evidence gathering, not blanket approval to mutate Home Assistant.
+
 ### Step 0 — Check if the integration is available (MANDATORY)
 
 **Before doing ANYTHING else**, check whether the integration domain is already installed in HA:
@@ -131,7 +139,7 @@ Then your response MUST start with EXACTLY this structure (fill in the actual IP
 
 Each step returns a `data_schema` array describing the fields. Each integration has completely different steps. Handle them generically.
 
-**1. Start the flow**
+**1. Start the flow only after explicit user confirmation**
 ```
 Tool: ha_config_entries_flow
   handler: "<integration_name>"
@@ -234,7 +242,7 @@ Tool: ha_config_entries_flow
 
 **7. After completion, verify**
 Use `ha_search_entities` to discover new devices from the integration.
-Show the user what new devices were found.
+Show the user what new devices were found. Count the setup as complete only after one new non-system entity was added relative to the baseline and you verified one read or control action against it.
 
 ### Error Handling
 - **`already_in_progress`**: A previous setup attempt is stuck. Ask the user if they want to clear it, then delete all pending flows for that integration and retry.
