@@ -6,7 +6,9 @@ Companion to [`feedback.md`](feedback.md). Incorporates the pre-seed `.storage` 
 
 ---
 
-## P0 — Unblocks the "no browser" promise
+## P0 — Done: unblocks the "no browser" promise
+
+Status: completed in repo on 2026-04-15. Items 1-4 are implemented and should now be treated as done.
 
 | # | Item | Description | Touches |
 |---|------|-------------|---------|
@@ -15,16 +17,33 @@ Companion to [`feedback.md`](feedback.md). Incorporates the pre-seed `.storage` 
 | 3 | Write `scripts/seed-ha-storage.py` | Standalone Python helper: take a config dir, generate random password + bcrypt hash + UUIDs + LLAT, write the four JSON files. Called by `install.sh` before HA boots. | `scripts/` (new) |
 | 4 | One-shot credential display in `install.sh` | Print the generated admin password to stdout once at install end with "save this, it's the only time you'll see it." Same UX as SSH key gen. | `install.sh` |
 
-## P1 — Closes the AHA-moment gap
+## P1 — Done: closes the AHA-moment gap
+
+Status: completed in repo on 2026-04-15 for items 5-9. Item 9a remains paused and is not part of the completed set.
 
 | # | Item | Description | Touches |
 |---|------|-------------|---------|
-| 5 | Merge "connect first device" into core setup | Rewrite `tools/setup.md` Step 10 so it doesn't end in a menu — it ends with the user successfully controlling a device. Required, not optional. | `tools/setup.md` |
-| 6 | Add `tools/integrations/_discovery.md` | New skill teaching the agent to scan the LAN with `arp-scan` / `avahi-browse` / SSDP *before* asking the user what devices they own. The agent has the network — use it. | `tools/integrations/` (new) |
-| 7 | Add `tools/integrations/fingerprints/` database | Per-vendor MAC OUI prefixes, mDNS service types, SSDP signatures mapped to HA integration domains. Start with `xiaomi.md`, `hue.md`, `shelly.md`, `esphome.md`, `broadlink.md`. | `tools/integrations/fingerprints/` (new) |
-| 8 | Add "no devices yet" check to first-run gate | Fourth check in `CLAUDE.md` alongside `.env` / HA / ha-mcp: if `ha_search_entities` returns zero non-default entities, proactively drive toward the first integration. | `CLAUDE.md` |
-| 9 | Audit approval-gate matcher for autonomous paths | As the agent becomes more autonomous (scans network, adds integrations), gate `ha_config_entries_flow` creation too — otherwise a zealous agent silently adds integrations. | `.claude/settings.json`, `scripts/approval-gate.py` |
-| 9a | Pre-install HACS during `install.sh` | Most integrations worth connecting (Xiaomi Home, Broadlink, custom cards) live in HACS. Requiring the user to install HACS manually before adding their first integration kills the AHA-moment. Drop `custom_components/hacs/` into `ha-config/` at install time so it's ready on first HA boot — user still clicks through HA UI + GitHub OAuth to activate, but the custom component is already on disk. Idempotent (skip if `ha-config/custom_components/hacs/manifest.json` exists), pin the HACS release version (don't chase `latest`), use `python3 -m zipfile` to avoid adding an `unzip` dep. Also update `tools/setup.md` and `tools/integrations/_guide.md` to assume HACS is pre-installed. | `install.sh`, `tools/setup.md`, `tools/integrations/_guide.md` |
+| 5 | Merge "connect first device" into core setup | Rewrite `tools/setup.md` so setup does not end at a menu. It must end after exactly one first-win path succeeds: either (a) one integration is added, or (b) one device is added/discovered and connected. Success means Home Assistant exposes at least one new non-system entity and the agent verifies one read or control action against it. Required, not optional. | `tools/setup.md` |
+| 6 | Add `tools/integrations/_discovery.md` | New skill teaching the agent to discover device candidates before asking the user for an inventory. Use passive-first discovery (`avahi-browse`, SSDP, existing HA/discovery signals) and only fall back to active LAN scans (`arp-scan`, `nmap`, `ip neigh`) when needed. After discovery, present the findings to the user as candidate devices/integrations instead of asking a blind "what devices do you own?" question. | `tools/integrations/` (new) |
+| 7 | Add `tools/integrations/fingerprints/` database | Create per-vendor fingerprint files that `_discovery.md` can actually consume: MAC OUI prefixes, mDNS service types, SSDP signatures, and likely HA integration domains in a consistent format. Start with `xiaomi.md`, `hue.md`, `shelly.md`, `esphome.md`, `broadlink.md`. | `tools/integrations/fingerprints/` (new) |
+| 8 | Add "no devices yet" check to first-run gate | Fourth check in `CLAUDE.md` alongside `.env` / HA / ha-mcp: if `ha_search_entities` returns zero device-backed, non-system entities, proactively route into the first-device discovery/integration flow instead of stopping at "connected, but no devices yet." | `CLAUDE.md` |
+| 9 | Audit approval-gate matcher for autonomous paths | After discovery, the agent should show the user the devices/services it found and let them choose whether to add one of those devices or start an integration flow. Passive discovery is allowed without approval. Starting a new integration/config flow or adding a device requires explicit user confirmation; audit the approval-gate matcher to enforce that boundary. | `.claude/settings.json`, `scripts/approval-gate.py`, `tools/integrations/_guide.md` |
+| 9a | Add explicit HACS choice branch | When the chosen integration is not available in HA and likely needs HACS, do not silently install HACS and do not make it mandatory by default. The agent should present a short decision message explaining the HACS path versus the manual-install path, then let the user choose. If the user opts into HACS, the agent may download/install HACS and guide the user through linking it; if the user declines, stay on the manual `custom_components/<domain>` path for that specific integration. | `tools/setup.md`, `tools/integrations/_guide.md` |
+
+### Item 9a — Implementation notes
+
+- Present the HACS choice only after discovery/selection identifies an integration that is not available in stock HA and is likely HACS-backed.
+- The user-facing choice should summarize both paths clearly:
+  - `HACS`: pros = easier installs, update visibility, broader ecosystem, works with `ha_hacs_*` MCP tools. cons = requires a GitHub account/linking step, extra setup friction, one more moving part.
+  - `Manual install`: pros = no GitHub/HACS requirement, better for one curated integration, more deterministic. cons = no `ha_hacs_*` workflow, manual updates/rollback, narrower ecosystem.
+- The user must explicitly choose before any HACS install/download work starts. Do not silently install HACS.
+- If the user chooses HACS, implement the download/install path as:
+  1. Run inside the HA container: `docker compose exec homeassistant bash -c 'wget -O - https://get.hacs.xyz | bash -'`
+  2. Restart Home Assistant
+  3. Guide the user through the HACS setup/linking step in the HA UI (GitHub device authorization stays user-facing)
+  4. After HACS is active, use HACS to download the target custom integration
+- If the user declines HACS, stay on the manual `config/custom_components/<domain>` route for that integration instead of blocking the flow.
+- `install.sh` should not pre-install HACS. This is a user decision in the first-device/integration flow, not part of base bootstrap.
 
 ## P2 — Structural cleanup around the new flow
 
@@ -49,9 +68,9 @@ Companion to [`feedback.md`](feedback.md). Incorporates the pre-seed `.storage` 
 
 ## Sequencing
 
-- **First PR — bundle P0 items 1–4.** Tightly coupled, not useful individually.
-- **Second PR — P1 items 5–8.** Turns the "no browser" install into a product demo worth shipping.
-- **Third PR — P1 item 9 + P2.** Safety audit + structural cleanup, now that the new flow exists.
+- **Completed — P0 items 1–4.** Tightly coupled bundle is already landed in the repo.
+- **Completed — P1 items 5–9.** The first-win setup path, passive-first discovery flow, fingerprint corpus, empty-instance guardrail, and approval-boundary audit are landed in the repo.
+- **Later PR — P1 item 9a + P2.** Explicit HACS choice branch + structural cleanup, now that the new flow exists.
 - **P3 is ongoing cleanup.** Do during the other PRs when touching adjacent files.
 
 ## What this doesn't change
