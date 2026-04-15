@@ -21,7 +21,7 @@
 | Symptom | Likely Cause | Action |
 |---|---|---|
 | All devices unavailable | HA restarted or integration crashed | Check `docker compose logs homeassistant --tail 50`. Reload the integration via `ha_config_entries_get` to find the entry, then `ha_call_service` with `domain: homeassistant, service: reload_config_entry`. |
-| HA unreachable | Network issue or HA overloaded | Verify HA is running: `curl -s ${HA_URL:-http://localhost:8123}/api/`. Check `.env` has correct `HA_URL`. |
+| HA unreachable | Network issue or HA overloaded | Verify HA is running with the same token-aware probe as setup: `HA_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2); if [ -n "$HA_TOKEN" ] && [ "$HA_TOKEN" != "your_long_lived_access_token_here" ]; then curl -fsS ${HA_URL:-http://localhost:8123}/api/config -H "Authorization: Bearer $HA_TOKEN" >/dev/null; else curl -s ${HA_URL:-http://localhost:8123}/api/ 2>/dev/null \| grep -q "API running"; fi` |
 | Token rejected (401) | Token expired or invalid | Have user create a new long-lived access token in HA UI and update `.env`. |
 
 **Note:** The old "Port conflict" row (referencing Step 3b) is intentionally removed — there is no API port to conflict. HA port conflicts are handled by `install.sh` and `tools/setup.md` Step 3.
@@ -33,7 +33,15 @@
 docker compose restart homeassistant
 # Wait for HA to come back
 HA_URL=$(grep HA_URL .env | cut -d= -f2); HA_URL=${HA_URL:-http://localhost:8123}
-for i in $(seq 1 15); do curl -s ${HA_URL}/api/ 2>/dev/null | grep -q "API running" && break; sleep 2; done
+HA_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2)
+for i in $(seq 1 15); do
+  if [ -n "${HA_TOKEN}" ] && [ "${HA_TOKEN}" != "your_long_lived_access_token_here" ]; then
+    curl -fsS ${HA_URL}/api/config -H "Authorization: Bearer ${HA_TOKEN}" >/dev/null && break
+  else
+    curl -s ${HA_URL}/api/ 2>/dev/null | grep -q "API running" && break
+  fi
+  sleep 2
+done
 ```
 
 **Reload a specific integration:**

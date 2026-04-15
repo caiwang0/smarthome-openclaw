@@ -1,0 +1,70 @@
+{
+  "workflow_id": "rdw-p0-2026-04-15T13:34:05+08:00",
+  "started": "2026-04-15T13:34:05+08:00",
+  "current_stage": "complete",
+  "artifacts": {
+    "issue_doc": "docs/rdw-p0-issue-doc.md",
+    "plan_doc": "docs/rdw-p0-plan.md",
+    "validation_report": "docs/rdw-p0-validation.md"
+  },
+  "stages_completed": [
+    "document",
+    "plan",
+    "implement",
+    "validate"
+  ],
+  "phases": {
+    "total": 3,
+    "completed": [
+      1,
+      2,
+      3
+    ],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "approved",
+      "notes": "Checklist-derived P0 issue doc covered findings, intent, residual risks, and stop rules."
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "approved",
+      "notes": "Plan covers all four P0 findings, explicit verification, install portability via uv+bcrypt, and real-container validation."
+    },
+    {
+      "stage": "implement",
+      "phase": 1,
+      "round": 1,
+      "result": "approved",
+      "notes": "Seed helper implemented with unit coverage for fresh generation, JWT construction, idempotency, and partial-state refusal."
+    },
+    {
+      "stage": "implement",
+      "phase": 2,
+      "round": 1,
+      "result": "approved",
+      "notes": "Installer integration and compose pin landed with shell smoke coverage for fresh install and rerun behavior."
+    },
+    {
+      "stage": "implement",
+      "phase": 3,
+      "round": 1,
+      "result": "approved",
+      "notes": "Fresh-container validation reached Home Assistant RUNNING on 2026.3.4 and authenticated with the generated token."
+    },
+    {
+      "stage": "validate",
+      "round": 1,
+      "result": "approved",
+      "notes": "Validation report recorded 4/4 PASS with green tests, pinned image evidence, and fresh-container auth checks."
+    }
+  ],
+  "tier": 2,
+  "discoveries": [],
+  "learnings_captured": []
+}
