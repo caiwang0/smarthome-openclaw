@@ -67,7 +67,7 @@ If `.env` doesn't exist, create it from the example:
 cp .env.example .env
 ```
 
-The token will be filled in later (Step 6). For now, `.env` just needs to exist so Docker Compose can read it.
+The token will be filled in later (Step 6). If `install.sh` already ran, `.env` may already contain a real `HA_TOKEN` from the seeded bootstrap — keep it.
 
 ---
 
@@ -80,18 +80,27 @@ docker compose up -d
 Wait for HA to boot (usually 30-60 seconds on first run):
 
 ```bash
-# Read the actual HA port from .env (set in Step 3)
+# Read the actual HA port and token from .env
 HA_URL=$(grep HA_URL .env | cut -d= -f2)
 HA_URL=${HA_URL:-http://localhost:8123}
+HA_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2)
 
-# Poll until HA responds on its actual port
+# Poll until HA responds on its actual port.
+# Seeded install path: auth is already enabled, so use /api/config with the token.
+# Manual/onboarding path: token is still placeholder, so use unauthenticated /api.
 for i in $(seq 1 30); do
-  curl -s ${HA_URL}/api/ 2>/dev/null | grep -q "API running" && break
+  if [ -n "${HA_TOKEN}" ] && [ "${HA_TOKEN}" != "your_long_lived_access_token_here" ]; then
+    curl -fsS ${HA_URL}/api/config \
+      -H "Authorization: Bearer ${HA_TOKEN}" >/dev/null && break
+  else
+    curl -s ${HA_URL}/api/ 2>/dev/null | grep -q "API running" && break
+  fi
   sleep 2
 done
 ```
 
-- If HA responds with `{"message": "API running."}` → run Step 4b, then move to Step 5
+- If `.env` already contains a real token and `/api/config` returns `200` → run Step 4b, then skip to Step 8
+- If HA responds with `{"message": "API running."}` in onboarding mode → run Step 4b, then move to Step 5
 - If it doesn't respond after 60 seconds → check logs:
   ```bash
   docker compose logs homeassistant --tail 50
@@ -155,6 +164,8 @@ Any device on the same network can now reach Home Assistant at `http://homeassis
 ---
 
 ## Step 5: HA Onboarding (User Does This in Browser)
+
+> **If `.env` already has a real `HA_TOKEN`, onboarding was pre-seeded by `install.sh`. Skip Steps 5, 6, and 7 and continue with Step 8.**
 
 First, get the Pi's IP and HA port:
 
@@ -277,7 +288,7 @@ Common issues:
 ### API can't connect to HA
 - Check `.env` has the correct token (no quotes, no extra spaces)
 - Check HA is running: `docker ps`
-- Check HA is accessible: `HA_URL=$(grep HA_URL .env | cut -d= -f2); curl -s ${HA_URL:-http://localhost:8123}/api/ -H "Authorization: Bearer <token>"`
+- Check HA is accessible: `HA_URL=$(grep HA_URL .env | cut -d= -f2); curl -s ${HA_URL:-http://localhost:8123}/api/config -H "Authorization: Bearer <token>"`
 
 ### Token rejected (401)
 - The token was copied incorrectly — have the user create a new one

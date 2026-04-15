@@ -255,7 +255,7 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 
 **HA is unreachable:**
 - Run `docker ps` — is `homeassistant` running?
-- Test: `curl http://localhost:8123/api/ -H "Authorization: Bearer YOUR_TOKEN"` — should return `{"message": "API running."}` (the `/api/` endpoint requires authentication)
+- Test: `curl http://localhost:8123/api/config -H "Authorization: Bearer YOUR_TOKEN"` — should return config JSON with fields like `version`, `state`, and `config_source`
 - Check `.env` has the correct token
 
 **OAuth redirect fails (Xiaomi, Google, etc.):**

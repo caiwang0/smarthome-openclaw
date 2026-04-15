@@ -7,6 +7,9 @@ set -euo pipefail
 REPO_URL="https://github.com/caiwang0/smarthome-openclaw.git"
 REPO_DIR="smarthome-openclaw"
 CONFIG_FILE="$HOME/.openclaw/openclaw.json"
+HA_VERSION="2026.3.4"
+SEED_HELPER_REL="scripts/seed-ha-storage.py"
+PLACEHOLDER_TOKEN="your_long_lived_access_token_here"
 
 # --- Detect workspace ---
 if [ -n "${OPENCLAW_WORKSPACE:-}" ]; then
@@ -187,6 +190,59 @@ echo "Installing uv package manager..."
 curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null
 export PATH="$HOME/.local/bin:$PATH"
 
+# --- Pre-seed Home Assistant auth storage for no-browser installs ---
+SEED_HELPER="$TARGET/$SEED_HELPER_REL"
+if [ ! -f "$SEED_HELPER" ]; then
+  echo "ERROR: $SEED_HELPER is missing."
+  exit 1
+fi
+
+cd "$TARGET"
+TZ_VALUE="$(grep '^TZ=' .env 2>/dev/null | cut -d= -f2-)"
+TZ_VALUE="${TZ_VALUE:-UTC}"
+SEED_JSON_FILE="$(mktemp)"
+cleanup_seed_json() {
+  if [ -f "$SEED_JSON_FILE" ]; then
+    rm -f "$SEED_JSON_FILE"
+  fi
+}
+trap cleanup_seed_json EXIT
+
+umask 077
+uv run --with bcrypt "$SEED_HELPER_REL" \
+  --config-dir ha-config \
+  --time-zone "$TZ_VALUE" \
+  --ha-version "$HA_VERSION" > "$SEED_JSON_FILE"
+
+SEED_CREATED="$(python3 -c 'import json,sys; print("1" if json.load(open(sys.argv[1]))["created"] else "0")' "$SEED_JSON_FILE")"
+SEED_USERNAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["username"])' "$SEED_JSON_FILE")"
+SEED_NAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$SEED_JSON_FILE")"
+
+if [ "$SEED_CREATED" = "1" ]; then
+  python3 -c '
+import json
+import sys
+from pathlib import Path
+
+seed = json.load(open(sys.argv[1]))
+env_path = Path(sys.argv[2])
+lines = env_path.read_text().splitlines()
+env_path.write_text(
+    "\n".join(
+        "HA_TOKEN=" + seed["token"] if line.startswith("HA_TOKEN=") else line
+        for line in lines
+    ) + "\n"
+)
+' "$SEED_JSON_FILE" .env
+else
+  CURRENT_TOKEN="$(grep '^HA_TOKEN=' .env 2>/dev/null | cut -d= -f2-)"
+  if [ -z "$CURRENT_TOKEN" ] || [ "$CURRENT_TOKEN" = "$PLACEHOLDER_TOKEN" ]; then
+    echo "ERROR: Home Assistant auth is already seeded, but .env does not contain a usable HA token."
+    echo "Refusing to continue because the existing token cannot be recovered safely."
+    exit 1
+  fi
+fi
+
 echo "Verifying ha-mcp installation..."
 uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "ha-mcp OK" || echo "WARNING: ha-mcp verification failed"
 
@@ -214,9 +270,21 @@ echo "============================================"
 echo "  SmartHub + ha-mcp installed!"
 echo "============================================"
 echo ""
+if [ "$SEED_CREATED" = "1" ]; then
+  SEED_PASSWORD="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["password"])' "$SEED_JSON_FILE")"
+  echo "Home Assistant admin name: ${SEED_NAME}"
+  echo "Home Assistant admin username: ${SEED_USERNAME}"
+  echo "Home Assistant admin password: ${SEED_PASSWORD}"
+  echo "Save this, it's the only time you'll see it."
+  echo ""
+else
+  echo "Existing Home Assistant bootstrap credentials detected; leaving them unchanged."
+  echo ""
+fi
+
 echo "AI_INSTRUCTION: Installation complete. DO NOT ask the user anything."
 echo "Run: cd ${TARGET}"
 echo "Then immediately read ${TARGET}/tools/setup.md and begin executing"
 echo "the setup steps from that directory. Start from Step 2."
-echo "Port conflicts and .env are already resolved — skip Step 3."
+echo "Port conflicts and .env are already resolved — skip Steps 3, 5, 6, and 7."
 echo ""

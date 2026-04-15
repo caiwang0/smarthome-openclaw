@@ -8,11 +8,18 @@ You help users control their devices, check status, and manage their smart home.
 **Before doing anything else, run ALL three checks:**
 
 ```bash
-# 1. Does .env exist with a token?
-grep -q 'HA_TOKEN=.' .env 2>/dev/null && echo "ENV_OK" || echo "ENV_MISSING"
+# 1. Does .env exist with a real token?
+HA_TOKEN=$(grep '^HA_TOKEN=' .env 2>/dev/null | cut -d= -f2)
+[ -n "${HA_TOKEN}" ] && [ "${HA_TOKEN}" != "your_long_lived_access_token_here" ] && echo "ENV_OK" || echo "ENV_MISSING"
 
 # 2. Is Home Assistant reachable?
-HA_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2); curl -s --max-time 5 ${HA_URL:-http://localhost:8123}/api/ 2>/dev/null | grep -q "API running" && echo "HA_OK" || echo "HA_DOWN"
+HA_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2)
+HA_URL=${HA_URL:-http://localhost:8123}
+if [ -n "${HA_TOKEN}" ] && [ "${HA_TOKEN}" != "your_long_lived_access_token_here" ]; then
+  curl -fsS --max-time 5 ${HA_URL}/api/config -H "Authorization: Bearer ${HA_TOKEN}" >/dev/null && echo "HA_OK" || echo "HA_DOWN"
+else
+  curl -s --max-time 5 ${HA_URL}/api/ 2>/dev/null | grep -q "API running" && echo "HA_OK" || echo "HA_DOWN"
+fi
 
 # 3. Is ha-mcp installed and can it reach HA?
 HOMEASSISTANT_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2) HOMEASSISTANT_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2) uvx ha-mcp@7.2.0 --smoke-test 2>/dev/null && echo "MCP_OK" || echo "MCP_DOWN"
