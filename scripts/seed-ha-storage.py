@@ -57,6 +57,12 @@ class SeedResult:
         return json.dumps(payload)
 
 
+class PartialStorageError(RuntimeError):
+    def __init__(self, storage_files: list[str]) -> None:
+        super().__init__("refusing to seed partial Home Assistant auth state")
+        self.storage_files = storage_files
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Seed Home Assistant private storage for no-browser installs."
@@ -289,7 +295,7 @@ def seed_storage(args: argparse.Namespace) -> SeedResult:
         )
 
     if any(path.exists() for path in paths):
-        raise RuntimeError("refusing to seed partial Home Assistant auth state")
+        raise PartialStorageError([path.name for path in paths if path.exists()])
 
     issued_at_dt = datetime.now(UTC)
     issued_at = int(issued_at_dt.timestamp())
@@ -352,6 +358,18 @@ def main() -> int:
     args = parse_args()
     try:
         result = seed_storage(args)
+    except PartialStorageError as exc:
+        print(
+            json.dumps(
+                {
+                    "status": "partial",
+                    "message": str(exc),
+                    "storage_files": exc.storage_files,
+                }
+            ),
+            file=sys.stderr,
+        )
+        return 1
     except Exception as exc:  # noqa: BLE001
         print(str(exc), file=sys.stderr)
         return 1

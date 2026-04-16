@@ -15,6 +15,8 @@ class SetupDocsTests(unittest.TestCase):
         self.assertIn("/api/config", setup)
         self.assertIn("your_long_lived_access_token_here", setup)
         self.assertIn("skip to Step 8", setup)
+        self.assertIn("automatic continuation target after `install.sh`", setup)
+        self.assertNotIn("Do NOT run this automatically", setup)
         self.assertIn("zero device-backed, non-system entities", claude)
         self.assertIn("pre-connection baseline", setup)
         self.assertIn("one new non-system entity", setup)

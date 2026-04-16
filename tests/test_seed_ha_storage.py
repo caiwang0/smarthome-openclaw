@@ -154,7 +154,14 @@ class SeedHaStorageTests(unittest.TestCase):
 
             proc = self.run_seed(config_dir, expect_success=False)
 
-            self.assertIn("partial", (proc.stderr or proc.stdout).lower())
+            payload_text = proc.stderr or proc.stdout
+            try:
+                payload = json.loads(payload_text)
+            except json.JSONDecodeError as exc:  # noqa: PERF203
+                self.fail(f"expected machine-readable JSON failure output, got: {payload_text!r}")
+            self.assertEqual(payload["status"], "partial")
+            self.assertEqual(payload["storage_files"], ["auth"])
+            self.assertIn("partial Home Assistant auth state", payload["message"])
             self.assertEqual(auth_path.read_text(), '{"existing": true}\n')
 
 

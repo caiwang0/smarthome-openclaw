@@ -245,9 +245,11 @@ Use `ha_search_entities` to discover new devices from the integration.
 Show the user what new devices were found. Count the setup as complete only after one new non-system entity was added relative to the baseline and you verified one read or control action against it.
 
 ### Error Handling
-- **`already_in_progress`**: A previous setup attempt is stuck. Ask the user if they want to clear it, then delete all pending flows for that integration and retry.
-- **`no_devices`**: The account/region has no devices. Ask the user to verify their region and that devices are registered in their app (Mi Home, LG ThinQ, etc.).
-- **Any error with `errors.base`**: Show the error to the user and ask how to proceed. Don't silently retry.
+Before telling the user an integration flow is stuck, follow the recovery ladder in `tools/_errors.md`.
+
+- **`already_in_progress`**: Inspect the pending flow, retry once, and only ask the user before deleting a stale flow or making a new config-flow choice.
+- **`no_devices`**: Follow the recovery ladder in `tools/_errors.md`, then ask the user to verify their region and that devices are registered in their app (Mi Home, LG ThinQ, etc.) if the local checks are clean.
+- **Any error with `errors.base`**: Follow the recovery ladder in `tools/_errors.md` first. Escalate immediately only if the next step would delete `ha-config`, replace an existing token/account, or require a config flow or OAuth choice.
 
 ### Clearing Stale Flows
 ```

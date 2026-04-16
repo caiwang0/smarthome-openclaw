@@ -2,9 +2,13 @@
 
 You are walking a new user through setting up SmartHub from scratch. They already have OpenClaw running and connected to their messaging platform — otherwise they wouldn't be talking to you.
 
-**This skill is triggered when the user asks for help setting up Home Assistant / SmartHub.** Do NOT run this automatically — only when the user explicitly asks for setup help.
+This workflow has two entrypoints:
+- the user explicitly asks for help setting up Home Assistant / SmartHub
+- `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
 
-Follow each step in order. **Do not skip ahead.** Wait for the user's confirmation before moving to the next step.
+When this doc is entered from `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+
+Before telling the user setup is stuck, follow the recovery ladder in `tools/_errors.md`.
 
 ---
 

@@ -33,7 +33,9 @@ Use `ha_search_entities` to confirm whether the instance has any device-backed, 
 
 **If the user asks for help with setup** (e.g., "help me set up", "install SmartHub", "configure HA"), also read `tools/setup.md` and follow it, even if all checks pass.
 
-**If the user asks you to run the SmartHub install command** (any message containing `install.sh`), run it and then **immediately proceed with `tools/setup.md` without waiting for the user to ask**. Do not tell the user to say "Help me set up SmartHub" — just continue.
+**If the user asks you to run the SmartHub install command** (any message containing `install.sh`), run it and then **immediately proceed with `tools/setup.md` as the setup/recovery continuation without waiting for the user to ask**. Do not tell the user to say "Help me set up SmartHub" — just continue.
+
+**If a setup or runtime command fails and the failure looks locally recoverable, follow the recovery ladder in `tools/_errors.md` before telling the user the system is stuck.**
 
 ## How to Interact with Home Assistant
 
