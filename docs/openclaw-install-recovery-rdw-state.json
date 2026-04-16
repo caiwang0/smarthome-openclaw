@@ -1,0 +1,74 @@
+{
+  "workflow_id": "rdw-20260416-openclaw-install-recovery",
+  "started": "2026-04-16T17:46:39+08:00",
+  "current_stage": "complete",
+  "artifacts": {
+    "issue_doc": "docs/openclaw-install-recovery-issue-doc.md",
+    "plan_doc": "docs/openclaw-install-recovery-plan.md",
+    "validation_report": "docs/openclaw-install-recovery-validation-report.md"
+  },
+  "stages_completed": [
+    "document",
+    "plan",
+    "implement",
+    "validate"
+  ],
+  "phases": {
+    "total": 4,
+    "completed": [
+      "phase-1-bootstrap-recovery-and-token-sync",
+      "phase-2-handoff-and-progress-labels",
+      "phase-3-recovery-ladder-contract",
+      "phase-4-regression-pass"
+    ],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "PASS",
+      "note": "Reviewer subagent PASS: the issue doc is complete, all five findings scored 2+ on clarity, testability, and completeness, and the Intent section contains a goal, priority ranking, decision boundaries, and stop rules."
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "PASS",
+      "note": "Reviewer subagent PASS: the phased implementation plan fully covers P1-P5, traces every issue-doc success criterion to implementation or test coverage, and introduces no clear scope creep."
+    },
+    {
+      "stage": "implement-phase-1",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Added ignored checkpoint-backed bootstrap recovery in install.sh, atomic HA token sync into .env, machine-readable partial-state failures from the seed helper, and focused regression coverage for checkpoint resume plus safe refusal without a checkpoint; reran `python3 -m unittest tests.test_install_sh tests.test_seed_ha_storage -v` successfully (7 tests passed)."
+    },
+    {
+      "stage": "implement-phase-2",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Aligned install.sh, CLAUDE.md, and tools/setup.md on the automatic post-install continuation path; added visible START/DONE/FAILED phase labels around slow installer steps; and reran `python3 -m unittest tests.test_install_sh tests.test_setup_docs -v` successfully within the broader docs/install suite."
+    },
+    {
+      "stage": "implement-phase-3",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Made `tools/_errors.md` the canonical recovery ladder and pointed CLAUDE.md, tools/setup.md, and tools/integrations/_guide.md at the same ordered recovery contract; reran `python3 -m unittest tests.test_recovery_docs tests.test_setup_docs tests.test_integrations_docs -v` successfully within the broader docs suite."
+    },
+    {
+      "stage": "implement-phase-4",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Expanded regression coverage for interrupted install resume, safe refusal without checkpoint state, slow-phase labeling, setup handoff, and the shared recovery ladder; reran `python3 -m unittest tests.test_install_sh tests.test_seed_ha_storage tests.test_setup_docs tests.test_integrations_docs tests.test_recovery_docs -v` successfully (13 tests passed)."
+    },
+    {
+      "stage": "validate",
+      "round": 1,
+      "result": "PASS",
+      "note": "Validation report written to `docs/openclaw-install-recovery-validation-report.md` with file-level evidence for P1-P5 plus the final 13-test unittest run; all five findings validated within scope."
+    }
+  ],
+  "tier": 2,
+  "discoveries": [],
+  "learnings_captured": []
+}

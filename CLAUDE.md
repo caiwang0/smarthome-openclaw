@@ -5,7 +5,7 @@ You help users control their devices, check status, and manage their smart home.
 
 ## First-Run Check
 
-**Before doing anything else, run ALL three checks:**
+**Before doing anything else, run ALL four checks:**
 
 ```bash
 # 1. Does .env exist with a real token?
@@ -25,11 +25,17 @@ fi
 HOMEASSISTANT_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2) HOMEASSISTANT_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2) uvx ha-mcp@7.2.0 --smoke-test 2>/dev/null && echo "MCP_OK" || echo "MCP_DOWN"
 ```
 
+# 4. Are there zero device-backed, non-system entities?
+Use `ha_search_entities` to confirm whether the instance has any device-backed, non-system entities.
+"No devices yet" means zero device-backed, non-system entities.
+
 **If ANY check fails**, the system is not fully set up. You MUST read `tools/setup.md` and follow it step by step. Do NOT improvise or ask your own questions — the setup skill has the exact flow. Skip steps that are already passing (e.g., if HA is running, skip the Docker step) but follow the skill for everything else.
 
 **If the user asks for help with setup** (e.g., "help me set up", "install SmartHub", "configure HA"), also read `tools/setup.md` and follow it, even if all checks pass.
 
-**If the user asks you to run the SmartHub install command** (any message containing `install.sh`), run it and then **immediately proceed with `tools/setup.md` without waiting for the user to ask**. Do not tell the user to say "Help me set up SmartHub" — just continue.
+**If the user asks you to run the SmartHub install command** (any message containing `install.sh`), run it and then **immediately proceed with `tools/setup.md` as the setup/recovery continuation without waiting for the user to ask**. Do not tell the user to say "Help me set up SmartHub" — just continue.
+
+**If a setup or runtime command fails and the failure looks locally recoverable, follow the recovery ladder in `tools/_errors.md` before telling the user the system is stuck.**
 
 ## How to Interact with Home Assistant
 

@@ -32,6 +32,10 @@ fi
 exit 0
 """,
             "curl": """#!/usr/bin/env bash
+if [ "${STUB_FAIL_UV_INSTALL:-0}" = "1" ]; then
+  echo "simulated uv install failure" >&2
+  exit 1
+fi
 printf '#!/bin/sh\\nexit 0\\n'
 """,
             "uv": """#!/usr/bin/env bash
@@ -69,7 +73,7 @@ exit 1
             path.write_text(contents)
             path.chmod(0o755)
 
-    def prepare_env(self, tmp: str) -> tuple[dict[str, str], Path]:
+    def prepare_env(self, tmp: str) -> tuple[dict[str, str], Path, Path]:
         root = Path(tmp)
         home = root / "home"
         workspace = home / ".openclaw" / "workspace"
@@ -113,7 +117,45 @@ exit 1
                 "FIXTURE_REPO": str(repo_copy),
             }
         )
-        return env, workspace / "smarthome-openclaw"
+        return env, workspace / "smarthome-openclaw", repo_copy
+
+    def make_existing_target(self, repo_copy: Path, target: Path) -> None:
+        shutil.copytree(
+            repo_copy,
+            target,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns(
+                ".codex",
+                ".superpowers",
+                "memory",
+                ".storage",
+                ".HA_VERSION",
+                ".ha_run.lock",
+                "home-assistant.log",
+                "home-assistant.log.1",
+                "home-assistant.log.fault",
+                "home-assistant_v2.db",
+                "home-assistant_v2.db-shm",
+                "home-assistant_v2.db-wal",
+            ),
+        )
+        (target / ".git").mkdir(parents=True, exist_ok=True)
+
+    def write_resume_checkpoint(self, target: Path, token: str) -> None:
+        checkpoint = target / ".openclaw" / "install-state.json"
+        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        checkpoint.write_text(
+            json.dumps(
+                {
+                    "phase": "seed-complete",
+                    "token": token,
+                    "username": "openclaw",
+                    "name": "OpenClaw",
+                }
+            )
+            + "\n"
+        )
+        checkpoint.chmod(0o600)
 
     def run_install(self, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -125,7 +167,7 @@ exit 1
 
     def test_install_seeds_token_and_prints_password_once_on_fresh_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            env, target = self.prepare_env(tmp)
+            env, target, _ = self.prepare_env(tmp)
 
             proc = self.run_install(env)
 
@@ -149,7 +191,7 @@ exit 1
 
     def test_second_install_keeps_existing_credentials_hidden(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            env, target = self.prepare_env(tmp)
+            env, target, _ = self.prepare_env(tmp)
 
             first = self.run_install(env)
             self.assertEqual(first.returncode, 0, first.stderr)
@@ -161,6 +203,95 @@ exit 1
             self.assertNotIn("home assistant admin password:", second.stdout.lower())
             self.assertNotIn("save this, it's the only time you'll see it.", second.stdout.lower())
             self.assertEqual(env_after_first, (target / ".env").read_text())
+
+    def test_install_restores_token_from_checkpoint_after_seed_interruption(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, target, repo_copy = self.prepare_env(tmp)
+            self.make_existing_target(repo_copy, target)
+            storage = target / "ha-config" / ".storage"
+            storage.mkdir(parents=True, exist_ok=True)
+            for name in ("auth", "auth_provider.homeassistant", "onboarding", "core.config"):
+                (storage / name).write_text("{}\n")
+                (storage / name).chmod(0o600)
+
+            (target / ".env").write_text(
+                "\n".join(
+                    [
+                        "HA_URL=http://localhost:8123",
+                        "HA_TOKEN=your_long_lived_access_token_here",
+                    ]
+                )
+                + "\n"
+            )
+            self.write_resume_checkpoint(target, "resume-token-123")
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            env_text = (target / ".env").read_text()
+            self.assertIn("HA_TOKEN=resume-token-123", env_text)
+            self.assertNotIn("your_long_lived_access_token_here", env_text)
+            self.assertFalse((target / ".openclaw" / "install-state.json").exists())
+            self.assertNotIn("Home Assistant admin password:", proc.stdout)
+            self.assertNotIn("browser", proc.stdout.lower())
+
+    def test_install_stops_when_seeded_storage_has_no_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, target, repo_copy = self.prepare_env(tmp)
+            self.make_existing_target(repo_copy, target)
+            storage = target / "ha-config" / ".storage"
+            storage.mkdir(parents=True, exist_ok=True)
+            for name in ("auth", "auth_provider.homeassistant", "onboarding", "core.config"):
+                (storage / name).write_text("{}\n")
+                (storage / name).chmod(0o600)
+
+            (target / ".env").write_text(
+                "\n".join(
+                    [
+                        "HA_URL=http://localhost:8123",
+                        "HA_TOKEN=your_long_lived_access_token_here",
+                    ]
+                )
+                + "\n"
+            )
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("checkpoint", combined)
+            self.assertIn("partial bootstrap", combined)
+
+    def test_install_prints_phase_labels_for_slow_steps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            output = proc.stdout.lower()
+            for phase in (
+                "repo sync",
+                "patch openclaw config",
+                "install uv",
+                "bootstrap home assistant auth",
+                "sync ha token",
+                "verify ha-mcp",
+                "handoff",
+            ):
+                self.assertIn(f"[install] start: {phase}", output)
+                self.assertIn(f"[install] done: {phase}", output)
+
+    def test_install_reports_failing_phase_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["STUB_FAIL_UV_INSTALL"] = "1"
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("[install] failed: install uv", combined)
 
 
 if __name__ == "__main__":
