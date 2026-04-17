@@ -62,6 +62,29 @@ OpenClaw will install everything and walk you through setup automatically.
 
 ---
 
+## Platform Support
+
+**Native macOS Docker Desktop** is the supported Mac target for the mainstream SmartHub flow through Docker Desktop: start Home Assistant, finish onboarding in the local browser, connect `ha-mcp`, and use common integrations.
+
+**Linux / Raspberry Pi** keeps the existing Linux-first path, including `homeassistant.local` when the Linux mDNS helper is enabled.
+
+**Native macOS Docker Desktop is not a promise of Raspberry Pi parity.** Do not expect full support for:
+
+- Bluetooth
+- USB radios
+- low-level networking
+
+If you need Linux behavior on a Mac, there are two separate fallback stories:
+
+- `Linux VM + SmartHub` is the pragmatic workaround for running the current repo on a Mac today. It gives SmartHub a Linux environment, but it does **not** prove that native macOS Docker Desktop support is complete.
+- `Home Assistant OS in a VM` is the official Home Assistant macOS route. It is good for running Home Assistant itself, but it is a different product shape from running this repo in a general Linux environment.
+
+A Mac-hosted VM only has local discovery and local-device control **while the Mac remains on the home LAN**.
+
+OpenClaw can guide parts of that VM setup, but GUI steps still require user action. If you take the official VM fallback, follow the Home Assistant macOS guidance: use VirtualBox with the image that matches your Mac (`Intel` vs `Apple Silicon`), assign at least `2 GB RAM` and `2 vCPUs`, enable `EFI`, switch networking to `Bridged Adapter`, and mention `UTM` only when VirtualBox is unsupported and the user is already comfortable with VMs.
+
+---
+
 ## Full Setup
 
 Three manual steps, then OpenClaw guides you through everything else.
@@ -110,7 +133,7 @@ OpenClaw: Let's get your smart home running. Do you have Docker installed?
 
 You:      Docker version 27.5.1
 OpenClaw: Docker is ready. Starting Home Assistant...
-          Done. Open http://homeassistant.local:8123 in your browser.
+          Done. Open http://localhost:8123 in your browser.
           Create your admin account and let me know when you're done.
 
 You:      Done, created user "alice"
@@ -175,15 +198,18 @@ The agent shows a summary, waits for "yes", then executes. Skip the "yes" and th
 home-assistant/
 ├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
 ├── TOOLS.md                     # Skill router — maps devices to files
-├── docker-compose.yml           # Runs Home Assistant
+├── docker-compose.yml           # Shared Home Assistant runtime
+├── docker-compose.linux.yml     # Linux / Raspberry Pi runtime overrides
+├── docker-compose.macos.yml     # Native macOS Docker Desktop runtime overrides
 ├── install.sh                   # One-command installer (clone, port-resolve, wire ha-mcp)
 ├── .env.example                 # Template — copy to .env, fill in HA_TOKEN
 ├── .claude/
 │   └── settings.json            # ha-mcp MCP server + PreToolUse approval hook
 │
 ├── scripts/
-│   └── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
-│                                # explicitly confirmed in their latest message
+│   ├── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
+│   │                            # explicitly confirmed in their latest message
+│   └── platform-env.sh          # Shared Linux/macOS runtime + URL selection helpers
 │
 ├── tools/                       # Skill files — the agent's knowledge base
 │   ├── setup.md                 #   First-run setup flow (Docker → HA → token → .env)
@@ -260,7 +286,11 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 
 **OAuth redirect fails (Xiaomi, Google, etc.):**
 
-The OAuth login redirects to `homeassistant.local:8123` (or whichever port HA is running on — check `HA_URL` in `.env`). This works via mDNS if your computer is on the same network. If it doesn't resolve, add the Pi's IP to your hosts file — OpenClaw will detect the IP and give you the exact command.
+On the native macOS Docker Desktop path, start with the same-machine browser flow through `HA_URL` (usually `http://localhost:8123`).
+
+Some integrations still insist on `homeassistant.local`. If OpenClaw tells you that the integration requires `homeassistant.local`, add a hosts entry that points `homeassistant.local` back to the current HA host, then retry the OAuth link. If you actually need Linux-style LAN parity on a Mac, move to the documented VM fallback instead of forcing the native path.
+
+If you are using `Linux VM + SmartHub` or `Home Assistant OS in a VM`, keep the VM NIC on `Bridged Adapter`. Those VM paths only have local discovery and control while the Mac remains on the home LAN.
 
 *Windows* — run Command Prompt as administrator:
 
@@ -272,7 +302,7 @@ Then paste the command OpenClaw gave you:
 
 *Mac / Linux:*
 ```bash
-echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts
+echo "<HA_HOST_IP> homeassistant.local" | sudo tee -a /etc/hosts
 ```
 
 **Tunnel not working:**

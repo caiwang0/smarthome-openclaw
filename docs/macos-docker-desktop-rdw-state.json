@@ -1,0 +1,102 @@
+{
+  "workflow_id": "rdw-20260417-macos-docker-desktop",
+  "started": "2026-04-17T14:14:50+08:00",
+  "current_stage": "complete",
+  "artifacts": {
+    "issue_doc": "docs/macos-docker-desktop-issue-doc.md",
+    "plan_doc": "docs/superpowers/plans/2026-04-17-macos-docker-desktop-support.md",
+    "validation_report": "docs/macos-docker-desktop-validation-report.md"
+  },
+  "stages_completed": [
+    "document",
+    "plan",
+    "implement",
+    "validate"
+  ],
+  "phases": {
+    "total": 4,
+    "completed": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "FAIL",
+      "note": "Reviewer found P3 and P4 under-scoped: the macOS boundary also touches integration and OAuth docs plus their regression coverage."
+    },
+    {
+      "stage": "document",
+      "round": 2,
+      "result": "PASS",
+      "note": "Reviewer PASS after extending the scope, affected components, and success criteria to cover integration, discovery, OAuth, and tests/test_integrations_docs.py."
+    },
+    {
+      "stage": "document",
+      "round": 3,
+      "result": "PASS",
+      "note": "Reviewer PASS after clarifying the VM alternatives: Linux VM is the pragmatic way to run the current repo on a Mac, HA OS VM is the official Home Assistant macOS route, and neither should be conflated with native macOS Docker Desktop support."
+    },
+    {
+      "stage": "document",
+      "round": 4,
+      "result": "PASS",
+      "note": "Reviewer PASS after adding the official macOS VM fallback details and OpenClaw-assist boundary: Intel vs Apple Silicon image choice, minimum 2 GB RAM and 2 vCPUs, EFI, bridged networking, and UTM only as an experienced-user fallback when VirtualBox is unsupported."
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "PASS",
+      "note": "Cross-reference review PASS: the Stage 2 plan maps all P1-P4 findings and all 17 success criteria to four sequential phases, keeps native macOS Docker Desktop as the target, and records exact files, tests, verification commands, and review checkpoints for Stage 3."
+    },
+    {
+      "stage": "implement",
+      "phase": 1,
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Phase 1 approved after inline Standard review: runtime split landed as shared plus linux/macos Compose overrides, scripts/platform-env.sh provides platform/origin/port helpers, CLAUDE.md and tools/setup.md now source the shared helper, Phase 1 targeted checks passed, Compose renders matched the intended contracts, and the full unittest suite passed (22 tests)."
+    },
+    {
+      "stage": "implement",
+      "phase": 2,
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Phase 2 approved after inline Standard review: install.sh now reports the platform path before repo sync, blocks unsupported or unready Docker/OpenClaw environments before mutation, uses shared env update helpers plus cross-platform port probing, emits native-vs-VM macOS guidance, and keeps one shared setup handoff. Fresh verification passed via bash -n install.sh, tests.test_setup_docs, tests.test_recovery_docs, and the full tests.test_install_sh suite (14 tests)."
+    },
+    {
+      "stage": "implement",
+      "phase": 3,
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Phase 3 approved after inline Standard review: README now defines native macOS Docker Desktop as the mainstream target, distinguishes Linux VM + SmartHub and Home Assistant OS in a VM, documents the LAN-only VM limitation, and records the official VM fallback settings. Setup, recovery, CLAUDE, discovery, integration, and Xiaomi OAuth docs now branch Linux vs native macOS behavior instead of assuming Raspberry Pi defaults, and the dashboard/OAuth guidance uses the platform-aware origin contract. Verification passed via tests.test_integrations_docs, tests.test_setup_docs, tests.test_recovery_docs, tests.test_macos_support_docs, plus the planned grep checks confirming Linux-only commands remain branched and homeassistant.local usage is explicit."
+    },
+    {
+      "stage": "implement",
+      "phase": 4,
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Phase 4 approved after inline Standard review: installer/platform coverage, macOS doc-contract coverage, full unittest regression coverage, and Linux/macOS Compose render checks all passed. Verification evidence: tests.test_platform_env + tests.test_install_sh (17 tests OK), tests.test_setup_docs + tests.test_integrations_docs + tests.test_recovery_docs + tests.test_macos_support_docs (8 tests OK), full unittest discover suite (34 tests OK), and fresh compose renders showing Linux host networking/dbus only on the Linux render and published ports on the macOS render."
+    },
+    {
+      "stage": "validate",
+      "round": 1,
+      "result": "PASS",
+      "note": "Final validation PASS. Validation report written to docs/macos-docker-desktop-validation-report.md. All four findings and all success criteria validated against the issue document, with the native macOS runtime verdict explicitly limited to the repo/runtime contract that could be exercised from this Linux workspace."
+    }
+  ],
+  "tier": 2,
+  "discoveries": [],
+  "learnings_captured": [
+    {
+      "type": "project",
+      "file": "memory/macos-docker-desktop-rdw-learnings.md",
+      "description": "macOS support has to cover integration/OAuth docs too, and native Docker Desktop must stay distinct from Linux VM and HA OS VM fallback stories."
+    }
+  ]
+}
