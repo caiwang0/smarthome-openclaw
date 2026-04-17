@@ -32,6 +32,9 @@ class RecoveryDocsTests(unittest.TestCase):
         self.assertIn("recovery ladder in `tools/_errors.md`", claude)
         self.assertIn("recovery ladder in `tools/_errors.md`", setup)
         self.assertIn("recovery ladder in `tools/_errors.md`", guide)
+        self.assertIn("linux vm + smarthub", errors)
+        self.assertIn("home assistant os in a vm", errors)
+        self.assertIn("gui steps still require user action", errors)
 
 
 if __name__ == "__main__":

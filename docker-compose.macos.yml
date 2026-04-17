@@ -1,0 +1,4 @@
+services:
+  homeassistant:
+    ports:
+      - "${HA_PORT:-8123}:8123"

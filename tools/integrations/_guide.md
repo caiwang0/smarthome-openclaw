@@ -4,11 +4,19 @@ Every integration has its own setup flow with different steps and options. **Do 
 
 ### Discovery First
 
-Use `tools/integrations/_discovery.md` as the read-only entrypoint before any mutation step. It is passive-first: check existing HA signals first, then mDNS via `avahi-browse -atr`, then SSDP, and only fall back to `ip neigh`, `arp-scan`, and `nmap` when passive evidence is insufficient.
+Use `tools/integrations/_discovery.md` as the read-only entrypoint before any mutation step. It is passive-first: check existing HA signals first, then mDNS via `avahi-browse -atr` on Linux-style shells, then SSDP, and only fall back to `ip neigh`, `arp-scan`, and `nmap` when passive evidence is insufficient and the current environment supports those tools.
 
 Present the results as candidates, not as implied action requests. Do not start a new config flow or attempt an add-device action until the user explicitly confirms the candidate they want to connect.
 
 Selecting a discovered device candidate still requires explicit user confirmation before any add-device action. Discovery is evidence gathering, not blanket approval to mutate Home Assistant.
+
+### Platform Contract
+
+- `native macOS Docker Desktop` is the primary Mac path. Use the same-machine browser flow from `smarthub_default_ha_origin`.
+- Linux / Raspberry Pi keeps the Linux-first LAN helper path, including `homeassistant.local` when the Linux mDNS setup is already in place.
+- `Linux VM + SmartHub` is the pragmatic repo workaround on a Mac when the user needs Linux behavior.
+- `Home Assistant OS in a VM` is the official Home Assistant macOS route, but it is a different product shape from running this repo in a Linux environment.
+- A Mac-hosted VM only has local discovery and local-device control while the Mac remains on the home LAN.
 
 ### Step 0 — Check if the integration is available (MANDATORY)
 
@@ -115,13 +123,16 @@ Check that the target domain appears in the results.
 
 Before responding, run:
 ```bash
-HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
-echo "http://homeassistant.local:${HA_PORT}/config/integrations/dashboard"
+. ./scripts/platform-env.sh
+HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
+HA_PORT=${HA_PORT:-8123}
+HA_ORIGIN=$(smarthub_default_ha_origin)
+echo "${HA_ORIGIN}/config/integrations/dashboard"
 ```
 
 Then your response MUST start with EXACTLY this structure (fill in the actual IP, port, and integration name):
 
-> **Option 1 — Do it yourself:** [Open HA Integrations](http://homeassistant.local:<HA_PORT>/config/integrations/dashboard) → click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
+> **Option 1 — Do it yourself:** [Open HA Integrations](${HA_ORIGIN}/config/integrations/dashboard) → click "Add Integration" → search for "<integration name>". Let me know when done and I'll check what devices were added.
 >
 > **Option 2 — I'll guide you step by step:** (details below)
 
@@ -203,39 +214,29 @@ Tool: ha_config_entries_flow
 | `create_entry` | Setup complete | Confirm success. Use `ha_search_entities` to show what devices were found. |
 
 **5. If a step has an OAuth URL** (common for Xiaomi, Google, etc.)
-- **Before showing any OAuth link**, ensure mDNS is broadcasting `homeassistant.local`. Run this silently — do NOT ask the user:
+- **Before showing any OAuth link**, determine the browser branch first:
   ```bash
-  # Check if already broadcasting
-  avahi-resolve -n homeassistant.local 2>/dev/null | grep -q "$(hostname -I | awk '{print $1}')" || {
-    # Install avahi-utils if needed
-    which avahi-publish >/dev/null 2>&1 || sudo apt-get install -y avahi-utils
-    # Set up persistent mDNS broadcast
-    PI_IP=$(hostname -I | awk '{print $1}')
-    mkdir -p ~/.config/systemd/user
-    cat > ~/.config/systemd/user/homeassistant-mdns.service << EOF
-  [Unit]
-  Description=Broadcast homeassistant.local via mDNS
-  After=network.target avahi-daemon.service
-  [Service]
-  ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${PI_IP}
-  Restart=on-failure
-  RestartSec=5
-  [Install]
-  WantedBy=default.target
-  EOF
-    systemctl --user daemon-reload
-    systemctl --user enable homeassistant-mdns
-    systemctl --user start homeassistant-mdns
-  }
+  . ./scripts/platform-env.sh
+  PLATFORM=$(smarthub_detect_platform)
+  HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
+  HA_PORT=${HA_PORT:-8123}
+  HA_ORIGIN=$(smarthub_default_ha_origin)
   ```
+- `native macOS Docker Desktop` uses the same-machine browser flow through `${HA_ORIGIN}`. Do **not** tell native macOS users to install Avahi, run `systemctl --user`, or assume Raspberry Pi-style LAN helpers on the Mac host.
+- Linux / Raspberry Pi / `Linux VM + SmartHub` can use the Linux mDNS helper from `tools/setup.md` Step 4b when `homeassistant.local` needs to resolve on the LAN.
+- **If an integration insists on `homeassistant.local`**, branch explicitly instead of pretending every platform already has it:
+  - Native macOS Docker Desktop: give the user a hosts file entry that maps `homeassistant.local` back to the same machine that is running the browser and Docker Desktop. This is a same-machine browser fix, not LAN discovery.
+  - Linux / Raspberry Pi / `Linux VM + SmartHub`: use working mDNS or give the browser machine an exact hosts file entry for the current Linux host IP.
+  - If the user actually needs Linux-style LAN parity, USB radios, Bluetooth, or deeper low-level networking on a Mac, move to the documented VM fallback instead of stretching the native path. `Linux VM + SmartHub` is the pragmatic repo workaround; `Home Assistant OS in a VM` is the official Home Assistant route.
+  - If OpenClaw is guiding the official VM fallback, match the Home Assistant macOS guide: `VirtualBox`, image for the correct Mac architecture (`Intel` vs `Apple Silicon`), at least `2 GB RAM`, `2 vCPUs`, `EFI`, `Bridged Adapter`, and `UTM` only when VirtualBox is unsupported and the user is already comfortable with VMs.
 - The URL is usually in `description_placeholders.link_left` or similar, wrapped in an HTML `<a>` tag
 - Extract the raw URL from the `href="..."` attribute
 - **NEVER paste the raw OAuth URL.** Always send it as a markdown hyperlink: `[Authorize <integration name>](extracted_url)`. See the "All URLs must be markdown hyperlinks" rule above.
 - Tell the user: "Open the link, log in, and let me know when you're done."
-- **If the OAuth redirect fails** (user says the page didn't load, or the flow doesn't advance), it means `homeassistant.local` isn't resolving to the Pi. Detect the Pi's IP with `hostname -I | awk '{print $1}'` and give the user the exact hosts file command with the IP already filled in:
-  - **Windows**: Search `cmd` in Start menu, right-click Command Prompt, click "Run as administrator", then paste: `echo <PI_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
-  - **Mac/Linux**: `echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts`
-  - Then tell them to click the OAuth link again
+- **If the OAuth redirect fails**, it usually means the required host name does not resolve on the machine doing the browser login. Give the user the exact hosts file entry with the value already filled in:
+  - **Windows**: `echo <HA_HOST_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
+  - **Mac/Linux**: `echo "<HA_HOST_IP> homeassistant.local" | sudo tee -a /etc/hosts`
+  - Tell them this is a local hosts file entry for the browser machine, then ask them to click the OAuth link again
 - After user confirms OAuth login, poll the flow status until it advances to the next step
 
 **6. Repeat steps 2-5 until the flow completes (`type` = `create_entry`)**

@@ -3,10 +3,6 @@ services:
     image: "ghcr.io/home-assistant/home-assistant:2026.3.4"
     volumes:
       - ./ha-config:/config
-      - /etc/localtime:/etc/localtime:ro
-      - /run/dbus:/run/dbus:ro
     restart: unless-stopped
-    privileged: true
-    network_mode: host
     environment:
       TZ: ${TZ:-UTC}

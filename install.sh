@@ -11,36 +11,76 @@ HA_VERSION="2026.3.4"
 SEED_HELPER_REL="scripts/seed-ha-storage.py"
 PLACEHOLDER_TOKEN="your_long_lived_access_token_here"
 INSTALL_STATE_REL=".openclaw/install-state.json"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# --- Detect workspace ---
-if [ -n "${OPENCLAW_WORKSPACE:-}" ]; then
-  WORKSPACE="$OPENCLAW_WORKSPACE"
-elif [ -f "$CONFIG_FILE" ]; then
-  # Try to read workspace from openclaw.json
-  WORKSPACE=$(python3 -c "
-import json, os
-with open('$CONFIG_FILE') as f:
-    c = json.load(f)
-ws = c.get('agents', {}).get('defaults', {}).get('workspace', '')
-print(os.path.expanduser(ws) if ws else '')
-" 2>/dev/null || true)
+if [ -f "$SCRIPT_DIR/scripts/platform-env.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$SCRIPT_DIR/scripts/platform-env.sh"
+else
+  smarthub_uname_s() {
+    uname -s
+  }
+
+  smarthub_detect_platform() {
+    case "$(smarthub_uname_s)" in
+      Linux)
+        printf 'linux\n'
+        ;;
+      Darwin)
+        printf 'macos\n'
+        ;;
+      *)
+        printf 'unsupported\n'
+        ;;
+    esac
+  }
+
+  smarthub_platform_label() {
+    case "${1:-$(smarthub_detect_platform)}" in
+      linux)
+        printf 'Linux/Raspberry Pi\n'
+        ;;
+      macos)
+        printf 'macOS Docker Desktop\n'
+        ;;
+      *)
+        printf 'unsupported\n'
+        ;;
+    esac
+  }
+
+  smarthub_port_in_use() {
+    python3 - "$1" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+for host in ("127.0.0.1", "localhost"):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.2)
+        if sock.connect_ex((host, port)) == 0:
+            raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+  }
 fi
 
-if [ -z "${WORKSPACE:-}" ]; then
-  WORKSPACE="$HOME/.openclaw/workspace"
-fi
-
-if [ ! -d "$WORKSPACE" ]; then
-  echo "ERROR: OpenClaw workspace not found at $WORKSPACE"
-  echo "Make sure OpenClaw is installed and configured first."
+fail_install() {
+  echo "ERROR: $1"
+  if [ -n "${2:-}" ]; then
+    echo "$2"
+  fi
   exit 1
-fi
+}
 
-echo "Using workspace: $WORKSPACE"
-
-# --- Clone or update repo ---
-TARGET="$WORKSPACE/$REPO_DIR"
-INSTALL_STATE_FILE="$TARGET/$INSTALL_STATE_REL"
+require_command() {
+  local command_name="$1"
+  local guidance="$2"
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    fail_install "${command_name} is required on the ${PLATFORM_LABEL} path." "$guidance"
+  fi
+}
 
 is_missing_or_placeholder_token() {
   local token="${1:-}"
@@ -121,30 +161,33 @@ clear_install_state() {
   rm -f "$INSTALL_STATE_FILE"
 }
 
-sync_env_token() {
-  local token="$1"
-  python3 - ".env" "$token" <<'PY'
+sync_env_value() {
+  local key="$1"
+  local value="$2"
+  local target_file="${3:-.env}"
+  python3 - "$target_file" "$key" "$value" <<'PY'
 import stat
 import sys
 import tempfile
 from pathlib import Path
 
 path = Path(sys.argv[1])
-token = sys.argv[2]
+key = sys.argv[2]
+value = sys.argv[3]
 existing_mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600
 lines = path.read_text().splitlines() if path.exists() else []
 
 updated = []
 replaced = False
 for line in lines:
-    if line.startswith("HA_TOKEN="):
-        updated.append("HA_TOKEN=" + token)
+    if line.startswith(key + "="):
+        updated.append(key + "=" + value)
         replaced = True
     else:
         updated.append(line)
 
 if not replaced:
-    updated.append("HA_TOKEN=" + token)
+    updated.append(key + "=" + value)
 
 with tempfile.NamedTemporaryFile(
     mode="w",
@@ -158,6 +201,76 @@ with tempfile.NamedTemporaryFile(
 
 temp_path.chmod(existing_mode or 0o600)
 temp_path.replace(path)
+PY
+}
+
+sync_env_token() {
+  local token="$1"
+  sync_env_value "HA_TOKEN" "$token"
+}
+
+sync_ha_server_port_config() {
+  local config_file="$1"
+  local server_port="$2"
+  python3 - "$config_file" "$server_port" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+server_port = sys.argv[2]
+
+if not path.exists() or not path.read_text().strip():
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"default_config:\n\nhttp:\n  server_port: {server_port}\n")
+    raise SystemExit(0)
+
+lines = path.read_text().splitlines()
+updated = []
+http_found = False
+server_port_written = False
+i = 0
+
+while i < len(lines):
+    line = lines[i]
+    stripped = line.strip()
+    if stripped == "http:":
+        http_found = True
+        updated.append(line)
+        i += 1
+        section_indent = len(line) - len(line.lstrip())
+        child_indent = section_indent + 2
+        inserted_here = False
+
+        while i < len(lines):
+          current = lines[i]
+          current_stripped = current.strip()
+          current_indent = len(current) - len(current.lstrip())
+          if current_stripped and current_indent <= section_indent:
+              break
+          if current_stripped.startswith("server_port:"):
+              if not server_port_written:
+                  updated.append(" " * child_indent + f"server_port: {server_port}")
+                  server_port_written = True
+              i += 1
+              inserted_here = True
+              continue
+          updated.append(current)
+          i += 1
+
+        if not server_port_written:
+            updated.append(" " * child_indent + f"server_port: {server_port}")
+            server_port_written = True
+        continue
+
+    updated.append(line)
+    i += 1
+
+if not http_found:
+    if updated and updated[-1] != "":
+        updated.append("")
+    updated.extend(["http:", f"  server_port: {server_port}"])
+
+path.write_text("\n".join(updated) + "\n")
 PY
 }
 
@@ -199,6 +312,91 @@ on_install_exit() {
 }
 
 trap 'on_install_exit $?' EXIT
+
+PLATFORM="$(smarthub_detect_platform)"
+PLATFORM_LABEL="$(smarthub_platform_label "$PLATFORM")"
+
+case "$PLATFORM" in
+  linux|macos)
+    ;;
+  *)
+    fail_install \
+      "Unsupported host OS for SmartHub installer: $(smarthub_uname_s)." \
+      "Supported installer paths are Linux/Raspberry Pi and macOS Docker Desktop."
+    ;;
+esac
+
+echo "Platform path: $PLATFORM_LABEL"
+if [ "$PLATFORM" = "macos" ]; then
+  echo "Note: Native macOS support covers the mainstream SmartHub flow."
+  echo "If you need USB radios, Bluetooth, or Linux-style low-level networking, use Linux VM + SmartHub or Home Assistant OS in a VM instead."
+  echo "OpenClaw can guide parts of that VM setup, but hypervisor GUI steps still require user action."
+fi
+
+if [ ! -f "$CONFIG_FILE" ]; then
+  fail_install \
+    "OpenClaw config not found at $CONFIG_FILE." \
+    "Install and configure OpenClaw first so SmartHub can reuse its workspace and gateway profile."
+fi
+
+if [ -n "${OPENCLAW_WORKSPACE:-}" ]; then
+  WORKSPACE="$OPENCLAW_WORKSPACE"
+else
+  WORKSPACE=$(python3 -c "
+import json, os
+with open('$CONFIG_FILE') as f:
+    c = json.load(f)
+ws = c.get('agents', {}).get('defaults', {}).get('workspace', '')
+print(os.path.expanduser(ws) if ws else '')
+" 2>/dev/null || true)
+fi
+
+if [ -z "${WORKSPACE:-}" ]; then
+  WORKSPACE="$HOME/.openclaw/workspace"
+fi
+
+if [ ! -d "$WORKSPACE" ]; then
+  fail_install \
+    "OpenClaw workspace not found at $WORKSPACE." \
+    "Make sure OpenClaw is installed and configured before rerunning SmartHub."
+fi
+
+echo "Using workspace: $WORKSPACE"
+
+TARGET="$WORKSPACE/$REPO_DIR"
+INSTALL_STATE_FILE="$TARGET/$INSTALL_STATE_REL"
+
+require_command "git" "Install git so the SmartHub repo can be synchronized before rerunning the installer."
+require_command "python3" "Install Python 3 so SmartHub can patch configuration and seed Home Assistant before rerunning the installer."
+require_command "curl" "Install curl so SmartHub can download uv during bootstrap."
+
+if ! docker --version >/dev/null 2>&1; then
+  if [ "$PLATFORM" = "macos" ]; then
+    fail_install \
+      "Docker CLI is unavailable on the macOS Docker Desktop path." \
+      "Install Docker Desktop and make sure the `docker` command is available in your shell before rerunning SmartHub."
+  fi
+  fail_install \
+    "Docker CLI is unavailable on the ${PLATFORM_LABEL} path." \
+    "Install Docker Engine and make sure the `docker` command is available before rerunning SmartHub."
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  if [ "$PLATFORM" = "macos" ]; then
+    fail_install \
+      "Docker Desktop is not running or the Docker daemon is unavailable on the macOS Docker Desktop path." \
+      "Start Docker Desktop and wait for `docker info` to succeed before rerunning SmartHub."
+  fi
+  fail_install \
+    "Docker daemon is unavailable on the ${PLATFORM_LABEL} path." \
+    "Start Docker and wait for `docker info` to succeed before rerunning SmartHub."
+fi
+
+if ! docker compose version >/dev/null 2>&1; then
+  fail_install \
+    "Docker Compose is required on the ${PLATFORM_LABEL} path." \
+    "Install or enable `docker compose` before rerunning SmartHub."
+fi
 
 start_phase "repo sync"
 if [ -d "$TARGET/.git" ]; then
@@ -309,41 +507,35 @@ if [ ! -f .env ]; then
   echo "Created .env from .env.example."
 fi
 
-# Check if port 8123 is already in use
-if ss -tlnp 2>/dev/null | grep -q ':8123 '; then
-  echo "Port 8123 is in use. Finding a free port..."
-  HA_PORT=""
+HA_PORT=8123
+if smarthub_port_in_use 8123; then
+  echo "Port 8123 is in use on the ${PLATFORM_LABEL} path. Finding a free port..."
   for port in 8124 8125 8126 8127 8128; do
-    if ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
-      HA_PORT=$port
+    if ! smarthub_port_in_use "$port"; then
+      HA_PORT="$port"
       break
     fi
   done
 
-  if [ -z "$HA_PORT" ]; then
+  if [ "$HA_PORT" = "8123" ]; then
     echo "WARNING: Could not find a free port in 8124-8128. Defaulting to 8123 (may conflict)."
-    HA_PORT=8123
   else
     echo "Assigning HA to port ${HA_PORT}."
-
-    # Write server_port to ha-config/configuration.yaml (only if fresh install)
-    mkdir -p ha-config
-    if [ ! -s ha-config/configuration.yaml ]; then
-      printf "default_config:\n\nhttp:\n  server_port: %s\n" "${HA_PORT}" > ha-config/configuration.yaml
+    if [ "$PLATFORM" = "linux" ]; then
+      mkdir -p ha-config
+      sync_ha_server_port_config "ha-config/configuration.yaml" "$HA_PORT"
       echo "Wrote server_port: ${HA_PORT} to ha-config/configuration.yaml."
     else
-      echo "WARNING: ha-config/configuration.yaml already exists."
-      echo "Add this manually under the http: section before starting HA:"
-      echo "  server_port: ${HA_PORT}"
+      echo "Using published host port ${HA_PORT} on the macOS Docker Desktop path."
     fi
-
-    # Update HA_URL in .env
-    sed -i "s|HA_URL=.*|HA_URL=http://localhost:${HA_PORT}|" .env
-    echo "Updated HA_URL to http://localhost:${HA_PORT} in .env."
   fi
 else
   echo "Port 8123 is free."
 fi
+
+sync_env_value "HA_PORT" "$HA_PORT"
+sync_env_value "HA_URL" "http://localhost:${HA_PORT}"
+echo "Updated HA_URL to http://localhost:${HA_PORT} in .env."
 
 cd - > /dev/null
 
@@ -500,6 +692,7 @@ echo "AI_INSTRUCTION: Installation complete. DO NOT ask the user anything."
 echo "Run: cd ${TARGET}"
 echo "Then immediately read ${TARGET}/tools/setup.md and continue the"
 echo "setup/recovery flow from that directory. Start from Step 2."
-echo "Port conflicts and .env are already resolved — skip Steps 3, 5, 6, and 7."
+echo "Use setup.md to decide which steps are already satisfied for the ${PLATFORM_LABEL} path."
+echo "The installer already created .env, selected HA_PORT, and may have pre-seeded HA auth."
 echo ""
 complete_phase

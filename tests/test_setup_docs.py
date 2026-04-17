@@ -32,6 +32,14 @@ class SetupDocsTests(unittest.TestCase):
 
         self.assertIn("/api/config", claude)
         self.assertIn("Authorization: Bearer ${HA_TOKEN}", claude)
+        self.assertIn("platform-env.sh", claude)
+        self.assertIn("platform-env.sh", setup)
+        self.assertIn("smarthub_compose_files", setup)
+        self.assertIn("smarthub_default_ha_origin", setup)
+        self.assertIn("docker desktop", setup.lower())
+        self.assertIn("linux vm + smarthub", setup.lower())
+        self.assertIn("home assistant os in a vm", setup.lower())
+        self.assertIn("use setup.md to decide which steps are already satisfied", setup.lower())
 
         self.assertIn("/api/config", readme)
 
