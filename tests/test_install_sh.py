@@ -165,6 +165,35 @@ exit 1
             env=env,
         )
 
+    def test_macos_host_path_stops_before_workspace_lookup_without_virtualbox(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            shutil.rmtree(Path(env["OPENCLAW_WORKSPACE"]))
+            env.pop("OPENCLAW_WORKSPACE", None)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("virtualbox", combined)
+            self.assertNotIn("workspace not found", combined)
+
+    def test_linux_guest_install_helper_exposes_entrypoint(self) -> None:
+        helper = REPO_ROOT / "scripts" / "linux-guest-install.sh"
+        proc = subprocess.run(
+            [
+                "bash",
+                "-lc",
+                f". '{helper}'; declare -F run_linux_guest_install",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+        self.assertIn("run_linux_guest_install", proc.stdout)
+
     def test_install_seeds_token_and_prints_password_once_on_fresh_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env, target, _ = self.prepare_env(tmp)
