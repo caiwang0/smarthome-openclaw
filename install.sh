@@ -37,29 +37,17 @@ smarthub_detect_platform() {
 }
 
 fail_install() {
-  echo "ERROR: $1"
+  echo "ERROR: $1" >&2
   if [ -n "${2:-}" ]; then
-    echo "$2"
+    echo "$2" >&2
   fi
   exit 1
 }
 
 run_macos_host_bootstrap() {
-  if ! command -v VBoxManage >/dev/null 2>&1; then
-    if command -v brew >/dev/null 2>&1; then
-      fail_install \
-        "VirtualBox is required for the macOS SmartHub path." \
-        "Run brew install --cask virtualbox, approve any macOS prompts, and rerun SmartHub."
-    fi
-
-    fail_install \
-      "VirtualBox is required for the macOS SmartHub path." \
-      "Install VirtualBox first, or install Homebrew so SmartHub can install VirtualBox for you on the next run."
-  fi
-
   fail_install \
-    "VirtualBox is installed, but the macOS VM bootstrap helper is not wired in yet." \
-    "Phase 2 will attach the macOS host bootstrap here."
+    "macOS VM bootstrap helper missing." \
+    "Restore scripts/macos-vm-bootstrap.sh before rerunning SmartHub."
 }
 
 LINUX_GUEST_HELPER="$SCRIPT_DIR/scripts/linux-guest-install.sh"
@@ -71,6 +59,16 @@ fi
 
 # shellcheck source=/dev/null
 . "$LINUX_GUEST_HELPER"
+
+MACOS_BOOTSTRAP_HELPER="$SCRIPT_DIR/scripts/macos-vm-bootstrap.sh"
+if [ ! -f "$MACOS_BOOTSTRAP_HELPER" ]; then
+  fail_install \
+    "macOS VM bootstrap helper missing at $MACOS_BOOTSTRAP_HELPER." \
+    "Re-clone the repo or restore scripts/macos-vm-bootstrap.sh before rerunning SmartHub."
+fi
+
+# shellcheck source=/dev/null
+. "$MACOS_BOOTSTRAP_HELPER"
 
 main() {
   if [ "${SMARTHUB_GUEST_INSTALL:-0}" = "1" ]; then

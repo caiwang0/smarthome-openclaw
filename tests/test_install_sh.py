@@ -32,6 +32,23 @@ fi
 exit 0
 """,
             "curl": """#!/usr/bin/env bash
+set -euo pipefail
+output=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o)
+      output="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ -n "$output" ]; then
+  : > "$output"
+  exit 0
+fi
 if [ "${STUB_FAIL_UV_INSTALL:-0}" = "1" ]; then
   echo "simulated uv install failure" >&2
   exit 1
@@ -165,6 +182,14 @@ exit 1
             env=env,
         )
 
+    def stub_bin_path(self, env: dict[str, str]) -> Path:
+        return Path(env["PATH"].split(":", 1)[0])
+
+    def write_stub_script(self, env: dict[str, str], name: str, contents: str) -> None:
+        path = self.stub_bin_path(env) / name
+        path.write_text(contents)
+        path.chmod(0o755)
+
     def test_macos_host_path_stops_before_workspace_lookup_without_virtualbox(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env, _, _ = self.prepare_env(tmp)
@@ -193,6 +218,204 @@ exit 1
 
         self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
         self.assertIn("run_linux_guest_install", proc.stdout)
+
+    def test_macos_host_path_installs_virtualbox_with_brew_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            env["STUB_BIN"] = str(self.stub_bin_path(env))
+
+            self.write_stub_script(
+                env,
+                "brew",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'brew %s\\n' "$*" >> "$STUB_LOG"
+cat > "$STUB_BIN/VBoxManage" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+EOF
+chmod +x "$STUB_BIN/VBoxManage"
+""",
+            )
+            self.write_stub_script(
+                env,
+                "ssh",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'ssh %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertIn("brew install --cask virtualbox", log_text)
+            self.assertIn("VBoxManage createvm", log_text)
+
+    def test_macos_host_path_rejects_unknown_arch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "ppc64"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+            self.write_stub_script(
+                env,
+                "ssh",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'ssh %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("unsupported mac architecture", combined)
+
+    def test_macos_host_path_generates_virtualbox_vm_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+            self.write_stub_script(
+                env,
+                "ssh",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'ssh %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertIn("VBoxManage createvm --name smarthub-vm --ostype Linux_64 --register", log_text)
+            self.assertIn("VBoxManage modifyvm smarthub-vm --firmware efi --memory 2048 --cpus 2", log_text)
+            self.assertIn("VBoxManage modifyvm smarthub-vm --nic1 bridged --bridgeadapter1 en0", log_text)
+            self.assertIn("VBoxManage modifyvm smarthub-vm --nic2 nat --natpf2 guestssh,tcp,127.0.0.1,2222,,22", log_text)
+            self.assertIn("VBoxManage unattended install smarthub-vm", log_text)
+
+    def test_macos_host_path_waits_for_guest_ssh_and_triggers_guest_install(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["SMARTHUB_VM_SSH_MAX_ATTEMPTS"] = "3"
+            env["SMARTHUB_VM_SSH_RETRY_DELAY"] = "0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            env["SSH_COUNTER_FILE"] = str(Path(tmp) / "ssh-count.txt")
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+            self.write_stub_script(
+                env,
+                "ssh",
+                """#!/usr/bin/env bash
+set -euo pipefail
+count=0
+if [ -f "$SSH_COUNTER_FILE" ]; then
+  count="$(cat "$SSH_COUNTER_FILE")"
+fi
+count=$((count + 1))
+printf '%s' "$count" > "$SSH_COUNTER_FILE"
+printf 'ssh %s\\n' "$*" >> "$STUB_LOG"
+if [ "$count" -eq 1 ]; then
+  exit 1
+fi
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertGreaterEqual(log_text.count("ssh -o StrictHostKeyChecking=no"), 2)
+            self.assertIn("-p 2222", log_text)
+            self.assertIn("SMARTHUB_GUEST_INSTALL=1 bash install.sh", log_text)
+
+    def test_macos_host_path_resume_skips_vm_creation_when_ssh_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+            self.write_stub_script(
+                env,
+                "ssh",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'ssh %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+
+            first = self.run_install(env)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            checkpoint = Path(env["HOME"]) / ".smarthub-vm" / "bootstrap-state.json"
+            self.assertTrue(checkpoint.exists())
+            payload = json.loads(checkpoint.read_text())
+            self.assertEqual(payload["stage"], "guest-install-triggered")
+
+            Path(env["STUB_LOG"]).write_text("")
+            second = self.run_install(env)
+
+            self.assertEqual(second.returncode, 0, second.stderr)
+            second_log = Path(env["STUB_LOG"]).read_text()
+            self.assertNotIn("VBoxManage createvm", second_log)
+            self.assertIn("ssh -o StrictHostKeyChecking=no", second_log)
 
     def test_install_seeds_token_and_prints_password_once_on_fresh_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

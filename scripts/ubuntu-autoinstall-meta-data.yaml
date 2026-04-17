@@ -1,0 +1,2 @@
+instance-id: smarthub-vm
+local-hostname: __SMARTHUB_HOSTNAME__
