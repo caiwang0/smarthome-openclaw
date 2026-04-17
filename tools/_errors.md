@@ -24,15 +24,6 @@
 | HA unreachable | Network issue or HA overloaded | Verify HA is running with the same token-aware probe as setup: `HA_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2); if [ -n "$HA_TOKEN" ] && [ "$HA_TOKEN" != "your_long_lived_access_token_here" ]; then curl -fsS ${HA_URL:-http://localhost:8123}/api/config -H "Authorization: Bearer $HA_TOKEN" >/dev/null; else curl -s ${HA_URL:-http://localhost:8123}/api/ 2>/dev/null \| grep -q "API running"; fi` |
 | Token rejected (401) | Token expired or invalid | Have user create a new long-lived access token in HA UI and update `.env`. |
 
-## Platform Notes
-
-- Native macOS Docker Desktop support covers the mainstream SmartHub flow only.
-- If the user needs USB radios, Bluetooth, or Linux-style low-level networking, use `Linux VM + SmartHub` or `Home Assistant OS in a VM` instead.
-- OpenClaw can guide parts of the VM setup, but hypervisor GUI steps still require user action.
-- If guiding the official macOS VM fallback, match the Home Assistant guide: `VirtualBox`, image for the correct Mac architecture (`Intel` vs `Apple Silicon`), at least `2 GB RAM`, `2 vCPUs`, `EFI`, `Bridged Adapter`, and `UTM` only as an experienced-user fallback when VirtualBox is unsupported.
-- A Mac-hosted VM only has local discovery and control while the Mac remains on the home LAN.
-- If `docker info` fails on macOS, start Docker Desktop before retrying the rest of the recovery ladder.
-
 **Note:** The old "Port conflict" row (referencing Step 3b) is intentionally removed — there is no API port to conflict. HA port conflicts are handled by `install.sh` and `tools/setup.md` Step 3.
 
 ## Recovery Ladder

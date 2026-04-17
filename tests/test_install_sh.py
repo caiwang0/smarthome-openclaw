@@ -60,40 +60,6 @@ for arg in "$@"; do
 done
 exec python3 "${args[@]}"
 """,
-            "docker": """#!/usr/bin/env bash
-set -euo pipefail
-case "${1:-}" in
-  --version|version)
-    if [ "${STUB_DOCKER_VERSION_FAIL:-0}" = "1" ]; then
-      echo "docker cli unavailable" >&2
-      exit 1
-    fi
-    echo "Docker version 27.5.1"
-    ;;
-  info)
-    if [ "${STUB_DOCKER_INFO_FAIL:-0}" = "1" ]; then
-      echo "docker daemon unavailable" >&2
-      exit 1
-    fi
-    echo "Docker info OK"
-    ;;
-  compose)
-    shift
-    if [ "${1:-}" = "version" ]; then
-      if [ "${STUB_DOCKER_COMPOSE_FAIL:-0}" = "1" ]; then
-        echo "docker compose unavailable" >&2
-        exit 1
-      fi
-      echo "Docker Compose version v2.33.0"
-      exit 0
-    fi
-    exit 0
-    ;;
-  *)
-    exit 0
-    ;;
-esac
-""",
             "uvx": """#!/usr/bin/env bash
 exit 0
 """,
@@ -208,7 +174,7 @@ exit 1
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertIn("save this, it's the only time you'll see it.", proc.stdout.lower())
             self.assertIn("home assistant admin username: openclaw", proc.stdout.lower())
-            self.assertIn("use setup.md to decide which steps are already satisfied", proc.stdout.lower())
+            self.assertIn("skip steps 3, 5, 6, and 7", proc.stdout.lower())
             self.assertIsNone(TOKEN_PATTERN.search(proc.stdout))
 
             env_text = (target / ".env").read_text()
@@ -326,116 +292,6 @@ exit 1
             self.assertNotEqual(proc.returncode, 0)
             combined = (proc.stdout + proc.stderr).lower()
             self.assertIn("[install] failed: install uv", combined)
-
-    def test_install_reports_platform_branch_before_repo_sync(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, _, _ = self.prepare_env(tmp)
-            env["SMARTHUB_TEST_UNAME"] = "Darwin"
-
-            proc = self.run_install(env)
-
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            output = proc.stdout.lower()
-            self.assertIn("platform path: macos docker desktop", output)
-            self.assertLess(
-                output.index("platform path: macos docker desktop"),
-                output.index("[install] start: repo sync"),
-            )
-
-    def test_install_stops_before_clone_when_docker_is_unavailable(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, target, _ = self.prepare_env(tmp)
-            env["STUB_DOCKER_VERSION_FAIL"] = "1"
-
-            proc = self.run_install(env)
-
-            self.assertNotEqual(proc.returncode, 0)
-            combined = (proc.stdout + proc.stderr).lower()
-            self.assertIn("docker cli is unavailable", combined)
-            self.assertNotIn("[install] start: repo sync", combined)
-            self.assertFalse(target.exists())
-
-    def test_install_stops_before_clone_when_compose_is_missing(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, target, _ = self.prepare_env(tmp)
-            env["STUB_DOCKER_COMPOSE_FAIL"] = "1"
-
-            proc = self.run_install(env)
-
-            self.assertNotEqual(proc.returncode, 0)
-            combined = (proc.stdout + proc.stderr).lower()
-            self.assertIn("docker compose is required", combined)
-            self.assertNotIn("[install] start: repo sync", combined)
-            self.assertFalse(target.exists())
-
-    def test_install_stops_before_clone_when_docker_desktop_is_not_running(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, target, _ = self.prepare_env(tmp)
-            env["SMARTHUB_TEST_UNAME"] = "Darwin"
-            env["STUB_DOCKER_INFO_FAIL"] = "1"
-
-            proc = self.run_install(env)
-
-            self.assertNotEqual(proc.returncode, 0)
-            combined = (proc.stdout + proc.stderr).lower()
-            self.assertIn("docker desktop is not running", combined)
-            self.assertNotIn("[install] start: repo sync", combined)
-            self.assertFalse(target.exists())
-
-    def test_install_uses_cross_platform_env_update_helpers(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, target, _ = self.prepare_env(tmp)
-            env["SMARTHUB_TEST_UNAME"] = "Darwin"
-            env["SMARTHUB_TEST_BUSY_PORTS"] = "8123"
-
-            proc = self.run_install(env)
-
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            env_text = (target / ".env").read_text()
-            self.assertIn("HA_PORT=8124", env_text)
-            self.assertIn("HA_URL=http://localhost:8124", env_text)
-
-    def test_install_selects_macos_host_port_without_linux_only_tools(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, target, _ = self.prepare_env(tmp)
-            env["SMARTHUB_TEST_UNAME"] = "Darwin"
-            env["SMARTHUB_TEST_BUSY_PORTS"] = "8123"
-
-            proc = self.run_install(env)
-
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            config_path = target / "ha-config" / "configuration.yaml"
-            if config_path.exists():
-                self.assertNotIn("server_port: 8124", config_path.read_text())
-            self.assertIn("using published host port 8124", proc.stdout.lower())
-
-    def test_install_keeps_linux_port_recovery_path_intact(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, target, _ = self.prepare_env(tmp)
-            env["SMARTHUB_TEST_UNAME"] = "Linux"
-            env["SMARTHUB_TEST_BUSY_PORTS"] = "8123"
-
-            proc = self.run_install(env)
-
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            env_text = (target / ".env").read_text()
-            self.assertIn("HA_PORT=8124", env_text)
-            self.assertIn("HA_URL=http://localhost:8124", env_text)
-            config_text = (target / "ha-config" / "configuration.yaml").read_text()
-            self.assertIn("server_port: 8124", config_text)
-
-    def test_install_emits_macos_fallback_guidance_for_out_of_scope_requirements(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env, _, _ = self.prepare_env(tmp)
-            env["SMARTHUB_TEST_UNAME"] = "Darwin"
-
-            proc = self.run_install(env)
-
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            output = proc.stdout.lower()
-            self.assertIn("linux vm + smarthub", output)
-            self.assertIn("home assistant os in a vm", output)
-            self.assertIn("gui steps still require user action", output)
 
 
 if __name__ == "__main__":

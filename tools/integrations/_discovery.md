@@ -9,9 +9,9 @@ This workflow is **read-only** and passive-first. It collects signals, ranks can
 1. Read existing HA signals first:
    - `ha_config_entries_get`
    - `ha_search_entities`
-2. Probe mDNS with `avahi-browse -atr` when the current shell supports Linux-style LAN tooling (`Linux`, Raspberry Pi, or `Linux VM + SmartHub`).
+2. Probe mDNS with `avahi-browse -atr`.
 3. Probe SSDP.
-4. If passive evidence is still insufficient and the current environment supports it, fall back to active LAN evidence:
+4. If passive evidence is still insufficient, fall back to active LAN evidence:
    - `ip neigh`
    - `arp-scan`
    - `nmap`
@@ -24,7 +24,6 @@ This workflow is **read-only** and passive-first. It collects signals, ranks can
 - Selecting a discovered device candidate still requires explicit user confirmation before any add-device action.
 - Do not start `ha_config_entries_flow` from this doc.
 - Do not add devices from this doc.
-- Native macOS Docker Desktop is still supported, but do not assume it can run every Linux LAN tool directly. Prefer HA-native signals first there, then move to a documented VM fallback only if deeper LAN probing is genuinely required.
 
 ## Fingerprint Corpus
 

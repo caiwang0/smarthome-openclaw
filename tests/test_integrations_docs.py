@@ -68,32 +68,6 @@ class IntegrationDocsTests(unittest.TestCase):
                 f"fingerprint schema drift in {filename}",
             )
 
-    def test_integration_docs_define_native_macos_branch_and_fallbacks(self) -> None:
-        guide = (REPO_ROOT / "tools" / "integrations" / "_guide.md").read_text().lower()
-        xiaomi = (REPO_ROOT / "tools" / "xiaomi-home" / "_integration.md").read_text().lower()
-
-        self.assertIn("native macos docker desktop", guide)
-        self.assertIn("same-machine browser flow", guide)
-        self.assertIn("linux vm + smarthub", guide)
-        self.assertIn("home assistant os in a vm", guide)
-        self.assertIn("if an integration insists on `homeassistant.local`", guide)
-        self.assertIn("hosts file entry", guide)
-
-        self.assertIn("native macos docker desktop", xiaomi)
-        self.assertIn("same-machine browser flow", xiaomi)
-        self.assertIn("homeassistant.local", xiaomi)
-        self.assertIn("linux vm + smarthub", xiaomi)
-        self.assertIn("home assistant os in a vm", xiaomi)
-
-    def test_integration_dashboard_link_is_platform_aware(self) -> None:
-        guide = (REPO_ROOT / "tools" / "integrations" / "_guide.md").read_text()
-
-        self.assertIn("smarthub_default_ha_origin", guide)
-        self.assertNotIn(
-            "http://homeassistant.local:<HA_PORT>/config/integrations/dashboard",
-            guide,
-        )
-
 
 if __name__ == "__main__":
     unittest.main()
