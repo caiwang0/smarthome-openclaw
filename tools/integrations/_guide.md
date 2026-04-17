@@ -10,6 +10,15 @@ Present the results as candidates, not as implied action requests. Do not start 
 
 Selecting a discovered device candidate still requires explicit user confirmation before any add-device action. Discovery is evidence gathering, not blanket approval to mutate Home Assistant.
 
+### Host / Guest Boundary
+
+- **macOS host: do not run `hostname -I`.** The macOS host is only for `install.sh`, VirtualBox, and host-level permission recovery.
+- **macOS host: do not run `systemctl --user`.**
+- **macOS host: do not run `avahi-publish-address`.**
+- **Linux guest: Home Assistant, Docker, Avahi, `homeassistant.local`, and all SmartHub shell commands live here.**
+- **Linux guest: `hostname -I`** is how you get the guest IP for LAN troubleshooting and browser-machine hosts-file fixes.
+- **browser machine** means the laptop, phone, or tablet opening the HA dashboard and OAuth pages. It might be the same Mac, but it is not the Linux guest shell unless the browser is running inside the VM.
+
 ### Step 0 — Check if the integration is available (MANDATORY)
 
 **Before doing ANYTHING else**, check whether the integration domain is already installed in HA:
@@ -113,7 +122,7 @@ Check that the target domain appears in the results.
 
 **Every single time you start an integration setup, your FIRST message to the user MUST contain the HA dashboard link.** This is non-negotiable. No exceptions. Not after HACS. Not after restart. EVERY time.
 
-Before responding, run:
+Before responding, inside the Linux guest, run:
 ```bash
 HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
 echo "http://homeassistant.local:${HA_PORT}/config/integrations/dashboard"
@@ -203,21 +212,22 @@ Tool: ha_config_entries_flow
 | `create_entry` | Setup complete | Confirm success. Use `ha_search_entities` to show what devices were found. |
 
 **5. If a step has an OAuth URL** (common for Xiaomi, Google, etc.)
-- **Before showing any OAuth link**, ensure mDNS is broadcasting `homeassistant.local`. Run this silently — do NOT ask the user:
+- **Before showing any OAuth link**, ensure mDNS is broadcasting `homeassistant.local` inside the Linux guest. Run this silently — do NOT ask the user:
   ```bash
+  # Linux guest only
   # Check if already broadcasting
   avahi-resolve -n homeassistant.local 2>/dev/null | grep -q "$(hostname -I | awk '{print $1}')" || {
     # Install avahi-utils if needed
     which avahi-publish >/dev/null 2>&1 || sudo apt-get install -y avahi-utils
     # Set up persistent mDNS broadcast
-    PI_IP=$(hostname -I | awk '{print $1}')
+    HA_GUEST_IP=$(hostname -I | awk '{print $1}')
     mkdir -p ~/.config/systemd/user
     cat > ~/.config/systemd/user/homeassistant-mdns.service << EOF
   [Unit]
   Description=Broadcast homeassistant.local via mDNS
   After=network.target avahi-daemon.service
   [Service]
-  ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${PI_IP}
+  ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${HA_GUEST_IP}
   Restart=on-failure
   RestartSec=5
   [Install]
@@ -232,9 +242,11 @@ Tool: ha_config_entries_flow
 - Extract the raw URL from the `href="..."` attribute
 - **NEVER paste the raw OAuth URL.** Always send it as a markdown hyperlink: `[Authorize <integration name>](extracted_url)`. See the "All URLs must be markdown hyperlinks" rule above.
 - Tell the user: "Open the link, log in, and let me know when you're done."
-- **If the OAuth redirect fails** (user says the page didn't load, or the flow doesn't advance), it means `homeassistant.local` isn't resolving to the Pi. Detect the Pi's IP with `hostname -I | awk '{print $1}'` and give the user the exact hosts file command with the IP already filled in:
-  - **Windows**: Search `cmd` in Start menu, right-click Command Prompt, click "Run as administrator", then paste: `echo <PI_IP> homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
-  - **Mac/Linux**: `echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts`
+- **If the OAuth redirect fails** (user says the page didn't load, or the flow doesn't advance), it means `homeassistant.local` isn't resolving to the Linux guest.
+  - Inside the Linux guest, run `HA_GUEST_IP=$(hostname -I | awk '{print $1}')`
+  - On the browser machine, add `homeassistant.local` for that IP:
+    - **Windows**: Search `cmd` in Start menu, right-click Command Prompt, click "Run as administrator", then paste: `echo %HA_GUEST_IP% homeassistant.local >> C:\Windows\System32\drivers\etc\hosts`
+    - **Mac/Linux**: `echo "${HA_GUEST_IP} homeassistant.local" | sudo tee -a /etc/hosts`
   - Then tell them to click the OAuth link again
 - After user confirms OAuth login, poll the flow status until it advances to the next step
 

@@ -304,7 +304,13 @@ smarthub_vm_wait_for_ssh() {
 smarthub_vm_trigger_guest_install() {
   local guest_repo remote_cmd
   guest_repo="$(smarthub_vm_guest_repo_dir)"
-  remote_cmd="git clone '$REPO_URL' '$guest_repo' || (cd '$guest_repo' && git pull --ff-only origin main); cd '$guest_repo'; SMARTHUB_GUEST_INSTALL=1 bash install.sh"
+  remote_cmd="if ! command -v openclaw >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta; fi; mkdir -p \"\$HOME/.openclaw/workspace\"; python3 -c \"import json, os; from pathlib import Path; path = Path.home() / '.openclaw' / 'openclaw.json'; path.parent.mkdir(parents=True, exist_ok=True); workspace = str(Path.home() / '.openclaw' / 'workspace'); payload = {}; \
+if path.exists(): \
+    payload = json.loads(path.read_text()); \
+agents = payload.setdefault('agents', {}); \
+defaults = agents.setdefault('defaults', {}); \
+defaults.setdefault('workspace', workspace); \
+path.write_text(json.dumps(payload) + '\\n')\"; git clone '$REPO_URL' '$guest_repo' || (cd '$guest_repo' && git pull --ff-only origin main); cd '$guest_repo'; SMARTHUB_GUEST_INSTALL=1 bash install.sh"
   smarthub_vm_run_ssh "$remote_cmd"
   smarthub_vm_write_state "guest-install-triggered" "$(smarthub_vm_name)" "$(smarthub_vm_ssh_port)" "$(smarthub_vm_bootstrap_user)"
 }

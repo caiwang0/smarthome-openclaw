@@ -82,6 +82,7 @@ When the user asks to add an integration (Xiaomi, Philips Hue, Broadlink, etc.),
 
 **CRITICAL — Always offer a manual option for setup/configuration tasks:**
 - Whenever the user asks to set up, add, configure, or troubleshoot an integration, device, or any HA configuration, **always include the HA dashboard link** as a "do it yourself" option.
+- In the macOS support path, the Mac is only the host bootstrap machine. Finish the `Linux VM + SmartHub` handoff first, then run the dashboard-link commands inside the Linux guest.
 - Get the HA port first:
   ```bash
   HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")

@@ -1,5 +1,13 @@
 # Error Handling — Runtime Troubleshooting
 
+## macOS host bootstrap issues
+
+| Symptom | Likely Cause | Action |
+|---|---|---|
+| VirtualBox install failed | macOS blocked the installer or system extension | Re-run `install.sh` on the macOS host, approve the VirtualBox prompts, then retry the Linux VM + SmartHub bootstrap. |
+| Linux VM never reaches SSH | Ubuntu install is still running or the VM boot failed | Open VirtualBox on the macOS host, inspect the VM console, and rerun `install.sh` after the guest finishes booting. |
+| Home Assistant disappears when the Mac leaves home | The supported macOS path is `Linux VM + SmartHub`, so the Mac host must stay powered on and on the home LAN | Move SmartHub to a dedicated Linux box if you need an always-on home hub. |
+
 ## ha-mcp Tool Errors
 
 | ToolError message | Meaning | Action |
@@ -56,6 +64,7 @@ Before telling the user the system is stuck, follow this recovery ladder for rec
      ```
    - Specific integration reload: use `ha_config_entries_get` to find the entry ID, then reload it via `ha_call_service` with `domain: homeassistant`, `service: reload_config_entry`, and `data: { "entry_id": "<entry_id>" }`.
 5. **Resume the checkpointed install** — if install bootstrap was interrupted, rerun `install.sh` from the repo root so it can restore `.env` from `.openclaw/install-state.json` or stop safely before HA is started with partial bootstrap state.
+   - On a macOS host, rerun `install.sh` from the macOS host so it can continue the VirtualBox + Linux VM + SmartHub checkpoint instead of creating a second VM blindly.
 6. **Escalate** — stop and ask the user instead of guessing when the next step would cross a safety boundary:
    - ask before deleting `ha-config`
    - ask before replacing an existing token/account

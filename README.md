@@ -52,29 +52,51 @@ Say "I'm leaving for work" and OpenClaw turns off lights, sets the AC to eco, an
 
 ---
 
+## macOS Support
+
+SmartHub supports macOS through **Linux VM + SmartHub** only.
+
+- `install.sh` on the macOS host checks or installs VirtualBox, provisions a Linux VM, bootstraps OpenClaw in the guest, then reruns the SmartHub installer there.
+- Home Assistant, Docker, mDNS, and the SmartHub runtime live inside that Linux guest. The macOS host is only the bootstrap machine.
+- Keep the Mac powered on and on the home LAN while you expect local discovery or direct device control.
+
+**Native macOS Docker Desktop is not supported** for the SmartHub runtime.
+
+If you only want the official Home Assistant path on a Mac, use **Home Assistant OS in a VM**. That is the HA-only alternative, not the SmartHub repo path.
+
+---
+
 ## Quick Install
 
-**Already have OpenClaw running?** Just tell your bot:
+**Linux / Raspberry Pi with OpenClaw already running?** Tell your bot:
 
 > Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh`
 
 OpenClaw will install everything and walk you through setup automatically.
 
+**macOS host?** Run the same `install.sh` command in Terminal on the macOS host. The installer provisions the Linux VM first, then continues inside the guest.
+
 ---
 
 ## Full Setup
 
-Three manual steps, then OpenClaw guides you through everything else.
+Pick the platform path that matches where SmartHub will actually run.
 
-### 1. Install OpenClaw
+### 1. Choose Your Runtime
 
-**macOS / Linux:**
+**Linux / Raspberry Pi**
 
 ```bash
 curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta
 ```
 
-**Windows:**
+Install OpenClaw on the Linux machine, connect your messaging app, then ask the bot to run SmartHub.
+
+**macOS host**
+
+Run `install.sh` on the macOS host. It provisions the Linux VM, installs OpenClaw in the guest if needed, and then continues the SmartHub install there. Do not try to run Home Assistant directly on the macOS host.
+
+**Windows**
 
 ```powershell
 powershell -c "irm https://openclaw.ai/install.ps1 | iex"
@@ -176,14 +198,16 @@ home-assistant/
 ├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
 ├── TOOLS.md                     # Skill router — maps devices to files
 ├── docker-compose.yml           # Runs Home Assistant
-├── install.sh                   # One-command installer (clone, port-resolve, wire ha-mcp)
+├── install.sh                   # Linux installer + macOS host bootstrap dispatcher
 ├── .env.example                 # Template — copy to .env, fill in HA_TOKEN
 ├── .claude/
 │   └── settings.json            # ha-mcp MCP server + PreToolUse approval hook
 │
 ├── scripts/
-│   └── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
-│                                # explicitly confirmed in their latest message
+│   ├── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
+│   │                            # explicitly confirmed in their latest message
+│   ├── macos-vm-bootstrap.sh    # VirtualBox + Ubuntu VM bootstrap on macOS hosts
+│   └── linux-guest-install.sh   # SmartHub runtime install inside the Linux guest
 │
 ├── tools/                       # Skill files — the agent's knowledge base
 │   ├── setup.md                 #   First-run setup flow (Docker → HA → token → .env)
@@ -260,7 +284,15 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 
 **OAuth redirect fails (Xiaomi, Google, etc.):**
 
-The OAuth login redirects to `homeassistant.local:8123` (or whichever port HA is running on — check `HA_URL` in `.env`). This works via mDNS if your computer is on the same network. If it doesn't resolve, add the Pi's IP to your hosts file — OpenClaw will detect the IP and give you the exact command.
+The OAuth login redirects to `homeassistant.local:8123` (or whichever port HA is running on — check `HA_URL` in `.env`). In the `Linux VM + SmartHub` path, `homeassistant.local` belongs to the Linux guest, not the macOS host.
+
+First, inside the Linux guest, get the guest IP:
+
+```bash
+HA_GUEST_IP=$(hostname -I | awk '{print $1}')
+```
+
+Then update the hosts file on the browser machine that is opening the OAuth link.
 
 *Windows* — run Command Prompt as administrator:
 
@@ -270,9 +302,9 @@ Then paste the command OpenClaw gave you:
 
 ![Paste the hosts command](docs/cmd-paste-command.png)
 
-*Mac / Linux:*
+*Mac / Linux browser machine:*
 ```bash
-echo "<PI_IP> homeassistant.local" | sudo tee -a /etc/hosts
+echo "${HA_GUEST_IP} homeassistant.local" | sudo tee -a /etc/hosts
 ```
 
 **Tunnel not working:**

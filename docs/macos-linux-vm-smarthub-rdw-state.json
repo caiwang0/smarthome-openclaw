@@ -14,9 +14,11 @@
   "phases": {
     "total": 4,
     "completed": [
-      "phase-1-installer-architecture-split"
+      "phase-1-installer-architecture-split",
+      "phase-2-macos-host-bootstrap-with-virtualbox",
+      "phase-3-docs-and-skill-contract-rewrite"
     ],
-    "current": "phase-2-macos-host-bootstrap-with-virtualbox",
+    "current": "phase-4-final-regression-and-validation",
     "failed": []
   },
   "review_log": [
@@ -37,9 +39,28 @@
       "round": 1,
       "result": "APPROVED",
       "note": "Phase 1 approved after splitting `install.sh` into a platform dispatcher plus extracted `scripts/linux-guest-install.sh`, adding Darwin dispatch and Linux-helper entrypoint tests, and rerunning `python3 -m unittest tests.test_install_sh -v` plus the full `python3 -m unittest discover -s tests -p 'test_*.py' -v` suite successfully (21 tests OK)."
+    },
+    {
+      "stage": "implement-phase-2",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Phase 2 approved after adding `scripts/macos-vm-env.sh`, `scripts/macos-vm-bootstrap.sh`, Ubuntu autoinstall templates, VirtualBox prerequisite gating, deterministic VM configuration, checkpoint state, SSH wait/retry, OpenClaw bootstrap inside the Linux guest, and guest re-entry via `SMARTHUB_GUEST_INSTALL=1 bash install.sh`. Verification passed with `python3 -m unittest tests.test_install_sh -v` (13 tests OK) and `python3 -m unittest discover -s tests -p 'test_*.py' -v` (26 tests OK)."
+    },
+    {
+      "stage": "implement-phase-3",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Phase 3 approved after rewriting `README.md`, `tools/setup.md`, `tools/_errors.md`, `tools/_common.md`, `tools/integrations/_guide.md`, and `CLAUDE.md` around the VM-only macOS support contract; adding `tests/test_macos_vm_docs.py`; and extending integration doc coverage for host-vs-guest boundaries. Verification passed with `python3 -m unittest tests.test_setup_docs tests.test_integrations_docs tests.test_macos_vm_docs -v` (5 tests OK) and `python3 -m unittest discover -s tests -p 'test_*.py' -v` (28 tests OK)."
     }
   ],
   "tier": 2,
-  "discoveries": [],
+  "discoveries": [
+    {
+      "phase": "phase-2-macos-host-bootstrap-with-virtualbox",
+      "severity": "medium",
+      "description": "The first guest-handoff implementation assumed OpenClaw already existed inside the Linux guest, which broke the promised one-command macOS bootstrap on a fresh VM.",
+      "resolution": "Bootstrap OpenClaw and a default `~/.openclaw/openclaw.json` inside the Linux guest before rerunning `SMARTHUB_GUEST_INSTALL=1 bash install.sh`."
+    }
+  ],
   "learnings_captured": []
 }

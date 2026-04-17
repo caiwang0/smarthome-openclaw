@@ -373,6 +373,7 @@ exit 0
             log_text = Path(env["STUB_LOG"]).read_text()
             self.assertGreaterEqual(log_text.count("ssh -o StrictHostKeyChecking=no"), 2)
             self.assertIn("-p 2222", log_text)
+            self.assertIn("openclaw.ai/install.sh", log_text)
             self.assertIn("SMARTHUB_GUEST_INSTALL=1 bash install.sh", log_text)
 
     def test_macos_host_path_resume_skips_vm_creation_when_ssh_ready(self) -> None:
