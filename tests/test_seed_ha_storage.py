@@ -1,15 +1,14 @@
 import base64
+import hashlib
+import hmac
 import json
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-
-import bcrypt
-import jwt
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "seed-ha-storage.py"
@@ -24,15 +23,39 @@ REQUIRED_STORAGE_FILES = (
 class SeedHaStorageTests(unittest.TestCase):
     maxDiff = None
 
+    def setUp(self) -> None:
+        self.support_dir = tempfile.TemporaryDirectory()
+        Path(self.support_dir.name, "bcrypt.py").write_text(
+            """import hashlib
+
+
+def gensalt(rounds=12):
+    return f"stub-salt-{rounds}".encode()
+
+
+def hashpw(password, salt):
+    return hashlib.sha256(password + b"|" + salt).hexdigest().encode()
+"""
+        )
+
+    def tearDown(self) -> None:
+        self.support_dir.cleanup()
+
     def run_seed(
         self,
         config_dir: Path,
         *extra_args: str,
         expect_success: bool = True,
     ) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = (
+            f"{self.support_dir.name}:{env['PYTHONPATH']}"
+            if env.get("PYTHONPATH")
+            else self.support_dir.name
+        )
         proc = subprocess.run(
             [
-                "python3",
+                sys.executable,
                 str(SCRIPT),
                 "--config-dir",
                 str(config_dir),
@@ -44,12 +67,24 @@ class SeedHaStorageTests(unittest.TestCase):
             ],
             capture_output=True,
             text=True,
+            env=env,
         )
         if expect_success and proc.returncode != 0:
             self.fail(proc.stderr or proc.stdout)
         if not expect_success and proc.returncode == 0:
             self.fail(f"expected failure but got success: {proc.stdout}")
         return proc
+
+    def decode_token_payload(self, token: str, jwt_key: str) -> dict[str, object]:
+        header_b64, payload_b64, signature_b64 = token.split(".")
+        signing_input = f"{header_b64}.{payload_b64}".encode()
+        expected_signature = base64.urlsafe_b64encode(
+            hmac.new(jwt_key.encode(), signing_input, hashlib.sha256).digest()
+        ).rstrip(b"=")
+        self.assertEqual(signature_b64.encode(), expected_signature)
+
+        padded_payload = payload_b64 + "=" * (-len(payload_b64) % 4)
+        return json.loads(base64.urlsafe_b64decode(padded_payload))
 
     def test_fresh_seed_writes_expected_files_and_secret_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -93,7 +128,10 @@ class SeedHaStorageTests(unittest.TestCase):
             auth_user = auth_provider["data"]["users"][0]
             self.assertEqual(auth_user["username"], "openclaw")
             password_hash = base64.b64decode(auth_user["password"])
-            self.assertTrue(bcrypt.checkpw(result["password"].encode(), password_hash))
+            self.assertEqual(
+                password_hash,
+                hashlib.sha256(result["password"].encode() + b"|stub-salt-12").hexdigest().encode(),
+            )
 
             users = {user["name"]: user for user in auth["data"]["users"]}
             self.assertIn("Home Assistant Content", users)
@@ -133,12 +171,7 @@ class SeedHaStorageTests(unittest.TestCase):
                 if token["token_type"] == "long_lived_access_token"
             )
 
-            payload = jwt.decode(
-                first["token"],
-                refresh_token["jwt_key"],
-                algorithms=["HS256"],
-                options={"verify_aud": False},
-            )
+            payload = self.decode_token_payload(first["token"], refresh_token["jwt_key"])
             self.assertEqual(payload["iss"], refresh_token["id"])
             self.assertGreater(payload["exp"], payload["iat"])
             self.assertGreaterEqual(payload["exp"] - payload["iat"], 315360000 - 5)

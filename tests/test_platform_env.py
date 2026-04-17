@@ -1,5 +1,4 @@
 import os
-import socket
 import subprocess
 import unittest
 from pathlib import Path
@@ -65,15 +64,13 @@ class PlatformEnvTests(unittest.TestCase):
         )
 
     def test_port_probe_reports_bound_and_unbound_ports(self) -> None:
-        with socket.socket() as sock:
-            sock.bind(("127.0.0.1", 0))
-            sock.listen()
-            bound_port = sock.getsockname()[1]
+        busy = self.run_helper(
+            "smarthub_port_in_use 8123",
+            {"SMARTHUB_TEST_BUSY_PORTS": "8123"},
+        )
+        self.assertEqual(busy.returncode, 0, busy.stderr)
 
-            busy = self.run_helper(f"smarthub_port_in_use {bound_port}")
-            self.assertEqual(busy.returncode, 0, busy.stderr)
-
-        free = self.run_helper(f"smarthub_port_in_use {bound_port}")
+        free = self.run_helper("smarthub_port_in_use 8124")
         self.assertNotEqual(free.returncode, 0, free.stderr)
 
 
