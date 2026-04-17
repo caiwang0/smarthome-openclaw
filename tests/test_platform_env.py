@@ -76,6 +76,19 @@ class PlatformEnvTests(unittest.TestCase):
         free = self.run_helper(f"smarthub_port_in_use {bound_port}")
         self.assertNotEqual(free.returncode, 0, free.stderr)
 
+    def test_port_probe_respects_test_busy_ports_override(self) -> None:
+        busy = self.run_helper(
+            "smarthub_port_in_use 8123",
+            {"SMARTHUB_TEST_BUSY_PORTS": "8123"},
+        )
+        self.assertEqual(busy.returncode, 0, busy.stderr)
+
+        free = self.run_helper(
+            "smarthub_port_in_use 8124",
+            {"SMARTHUB_TEST_BUSY_PORTS": "8123"},
+        )
+        self.assertNotEqual(free.returncode, 0, free.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

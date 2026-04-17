@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,6 +19,18 @@ class InstallScriptTests(unittest.TestCase):
 
     def write_stub_commands(self, stub_bin: Path) -> None:
         stub_bin.mkdir(parents=True, exist_ok=True)
+        (stub_bin / "bcrypt.py").write_text(
+            """import hashlib
+
+
+def gensalt(rounds=12):
+    return f"stub-salt-{rounds}".encode()
+
+
+def hashpw(password, salt):
+    return hashlib.sha256(password + b"|" + salt).hexdigest().encode()
+"""
+        )
 
         scripts = {
             "git": """#!/usr/bin/env bash
@@ -38,7 +51,7 @@ if [ "${STUB_FAIL_UV_INSTALL:-0}" = "1" ]; then
 fi
 printf '#!/bin/sh\\nexit 0\\n'
 """,
-            "uv": """#!/usr/bin/env bash
+            "uv": f"""#!/usr/bin/env bash
 set -euo pipefail
 args=()
 skip_next=0
@@ -58,7 +71,8 @@ for arg in "$@"; do
       ;;
   esac
 done
-exec python3 "${args[@]}"
+export PYTHONPATH="{stub_bin}:${{PYTHONPATH:-}}"
+exec {sys.executable} "${{args[@]}}"
 """,
             "docker": """#!/usr/bin/env bash
 set -euo pipefail
