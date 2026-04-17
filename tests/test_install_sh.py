@@ -437,6 +437,38 @@ exit 1
             self.assertIn("home assistant os in a vm", output)
             self.assertIn("gui steps still require user action", output)
 
+    def test_standalone_install_skips_openclaw_requirements_and_targets_downloads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, workspace_target, _ = self.prepare_env(tmp)
+            env["SMARTHUB_STANDALONE"] = "1"
+            config_path = Path(env["HOME"]) / ".openclaw" / "openclaw.json"
+            config_path.unlink()
+            standalone_target = Path(env["HOME"]) / "Downloads" / "smarthome-openclaw"
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertFalse(workspace_target.exists())
+            self.assertTrue(standalone_target.exists())
+            self.assertTrue((standalone_target / ".env").exists())
+            output = proc.stdout.lower()
+            self.assertNotIn("openclaw config not found", output)
+            self.assertNotIn("[install] start: patch openclaw config", output)
+            self.assertNotIn("patching openclaw.json", output)
+
+    def test_default_install_still_requires_openclaw_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, target, _ = self.prepare_env(tmp)
+            config_path = Path(env["HOME"]) / ".openclaw" / "openclaw.json"
+            config_path.unlink()
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("openclaw config not found", combined)
+            self.assertFalse(target.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

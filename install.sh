@@ -12,6 +12,7 @@ SEED_HELPER_REL="scripts/seed-ha-storage.py"
 PLACEHOLDER_TOKEN="your_long_lived_access_token_here"
 INSTALL_STATE_REL=".openclaw/install-state.json"
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+STANDALONE_MODE="${SMARTHUB_STANDALONE:-0}"
 
 if [ -f "$SCRIPT_DIR/scripts/platform-env.sh" ]; then
   # shellcheck source=/dev/null
@@ -333,32 +334,38 @@ if [ "$PLATFORM" = "macos" ]; then
   echo "OpenClaw can guide parts of that VM setup, but hypervisor GUI steps still require user action."
 fi
 
-if [ ! -f "$CONFIG_FILE" ]; then
-  fail_install \
-    "OpenClaw config not found at $CONFIG_FILE." \
-    "Install and configure OpenClaw first so SmartHub can reuse its workspace and gateway profile."
-fi
-
-if [ -n "${OPENCLAW_WORKSPACE:-}" ]; then
-  WORKSPACE="$OPENCLAW_WORKSPACE"
+if [ "$STANDALONE_MODE" = "1" ]; then
+  WORKSPACE="$HOME/Downloads"
+  mkdir -p "$WORKSPACE"
+  echo "Standalone mode: cloning into $WORKSPACE without OpenClaw config patching."
 else
-  WORKSPACE=$(python3 -c "
+  if [ ! -f "$CONFIG_FILE" ]; then
+    fail_install \
+      "OpenClaw config not found at $CONFIG_FILE." \
+      "Install and configure OpenClaw first so SmartHub can reuse its workspace and gateway profile."
+  fi
+
+  if [ -n "${OPENCLAW_WORKSPACE:-}" ]; then
+    WORKSPACE="$OPENCLAW_WORKSPACE"
+  else
+    WORKSPACE=$(python3 -c "
 import json, os
 with open('$CONFIG_FILE') as f:
     c = json.load(f)
 ws = c.get('agents', {}).get('defaults', {}).get('workspace', '')
 print(os.path.expanduser(ws) if ws else '')
 " 2>/dev/null || true)
-fi
+  fi
 
-if [ -z "${WORKSPACE:-}" ]; then
-  WORKSPACE="$HOME/.openclaw/workspace"
-fi
+  if [ -z "${WORKSPACE:-}" ]; then
+    WORKSPACE="$HOME/.openclaw/workspace"
+  fi
 
-if [ ! -d "$WORKSPACE" ]; then
-  fail_install \
-    "OpenClaw workspace not found at $WORKSPACE." \
-    "Make sure OpenClaw is installed and configured before rerunning SmartHub."
+  if [ ! -d "$WORKSPACE" ]; then
+    fail_install \
+      "OpenClaw workspace not found at $WORKSPACE." \
+      "Make sure OpenClaw is installed and configured before rerunning SmartHub."
+  fi
 fi
 
 echo "Using workspace: $WORKSPACE"
@@ -400,24 +407,40 @@ fi
 
 start_phase "repo sync"
 if [ -d "$TARGET/.git" ]; then
-  echo "Repo already exists, pulling latest..."
-  cd "$TARGET" && git pull origin main
+  if [ "$STANDALONE_MODE" = "1" ]; then
+    SOURCE_BRANCH="$(git -C "$SCRIPT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || printf 'HEAD')"
+    echo "Repo already exists, pulling latest from local branch ${SOURCE_BRANCH}..."
+    cd "$TARGET" && git pull --ff-only "$SCRIPT_DIR" "$SOURCE_BRANCH"
+  else
+    echo "Repo already exists, pulling latest..."
+    cd "$TARGET" && git pull origin main
+  fi
 else
-  echo "Cloning smarthome-openclaw..."
-  git clone "$REPO_URL" "$TARGET"
+  if [ "$STANDALONE_MODE" = "1" ]; then
+    SOURCE_BRANCH="$(git -C "$SCRIPT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    echo "Cloning smarthome-openclaw from current checkout..."
+    git clone "$SCRIPT_DIR" "$TARGET"
+    if [ -n "$SOURCE_BRANCH" ]; then
+      cd "$TARGET" && git checkout "$SOURCE_BRANCH" >/dev/null 2>&1 || true
+    fi
+  else
+    echo "Cloning smarthome-openclaw..."
+    git clone "$REPO_URL" "$TARGET"
+  fi
 fi
 complete_phase
 
-# --- Patch openclaw.json to add bootstrap-extra-files ---
-if [ ! -f "$CONFIG_FILE" ]; then
-  echo "ERROR: openclaw.json not found at $CONFIG_FILE"
-  exit 1
-fi
+if [ "$STANDALONE_MODE" != "1" ]; then
+  # --- Patch openclaw.json to add bootstrap-extra-files ---
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo "ERROR: openclaw.json not found at $CONFIG_FILE"
+    exit 1
+  fi
 
-start_phase "patch openclaw config"
-echo "Patching openclaw.json (bootstrap files + ACPX cwd + model)..."
+  start_phase "patch openclaw config"
+  echo "Patching openclaw.json (bootstrap files + ACPX cwd + model)..."
 
-python3 -c "
+  python3 -c "
 import json, sys
 
 config_path = '$CONFIG_FILE'
@@ -497,7 +520,8 @@ with open(config_path, 'w') as f:
 
 print('  Added bootstrap paths:', ', '.join(our_paths))
 "
-complete_phase
+  complete_phase
+fi
 
 # --- Create .env and resolve port conflicts ---
 cd "$TARGET"
