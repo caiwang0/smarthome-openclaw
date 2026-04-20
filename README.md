@@ -52,56 +52,52 @@ Say "I'm leaving for work" and OpenClaw turns off lights, sets the AC to eco, an
 
 ---
 
+## macOS Support
+
+SmartHub now supports two install paths: Raspberry Pi for the full runtime, and macOS for the official Home Assistant VM path.
+
+- `install.sh` on the macOS host checks or installs VirtualBox, detects whether the Mac is Intel or Apple Silicon, and downloads the matching Home Assistant OS disk image.
+- Intel Macs use the official `haos_ova` VirtualBox image.
+- Apple Silicon Macs use the official `haos_generic-aarch64` VirtualBox image.
+- The installer creates a bridged VirtualBox VM, attaches the matching disk image, starts Home Assistant OS, creates the initial Home Assistant admin account, and generates a long-lived access token.
+- Keep the Mac powered on and on the home LAN while you expect local discovery or direct device control.
+
+**Native macOS Docker Desktop is not supported** for the SmartHub runtime.
+
+`install.sh` on macOS now waits for Home Assistant to boot, seeds the first admin account, and syncs the generated long-lived access token into `.env` before handing you the login URL.
+If you need the full SmartHub runtime, run this repo on a Raspberry Pi and use macOS only as the Home Assistant VM host.
+
+---
+
 ## Quick Install
 
-**Already have OpenClaw running?** Just tell your bot:
+**Raspberry Pi with OpenClaw already running?** Tell your bot:
 
 > Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh`
 
 OpenClaw will install everything and walk you through setup automatically.
 
----
-
-## Platform Support
-
-**Native macOS Docker Desktop** is the supported Mac target for the mainstream SmartHub flow through Docker Desktop: start Home Assistant, finish onboarding in the local browser, connect `ha-mcp`, and use common integrations.
-
-**Linux / Raspberry Pi** keeps the existing Linux-first path, including `homeassistant.local` when the Linux mDNS helper is enabled.
-
-**Native macOS Docker Desktop is not a promise of Raspberry Pi parity.** Do not expect full support for:
-
-- Bluetooth
-- USB radios
-- low-level networking
-
-If you need Linux behavior on a Mac, there are two separate fallback stories:
-
-- `Linux VM + SmartHub` is the pragmatic workaround for running the current repo on a Mac today. It gives SmartHub a Linux environment, but it does **not** prove that native macOS Docker Desktop support is complete.
-- `Home Assistant OS in a VM` is the official Home Assistant macOS route. It is good for running Home Assistant itself, but it is a different product shape from running this repo in a general Linux environment.
-
-A Mac-hosted VM only has local discovery and local-device control **while the Mac remains on the home LAN**.
-
-OpenClaw can guide parts of that VM setup, but GUI steps still require user action. If you take the official VM fallback, follow the Home Assistant macOS guidance: use VirtualBox with the image that matches your Mac (`Intel` vs `Apple Silicon`), assign at least `2 GB RAM` and `2 vCPUs`, enable `EFI`, switch networking to `Bridged Adapter`, and mention `UTM` only when VirtualBox is unsupported and the user is already comfortable with VMs.
+**macOS host?** Run the same `install.sh` command in Terminal on the macOS host. The installer detects Intel vs Apple Silicon, downloads the matching official Home Assistant OS VirtualBox image, starts the VM, and bootstraps the initial Home Assistant account and token for you.
 
 ---
 
 ## Full Setup
 
-Three manual steps, then OpenClaw guides you through everything else.
+Pick the platform path that matches where SmartHub will actually run.
 
-### 1. Install OpenClaw
+### 1. Choose Your Runtime
 
-**macOS / Linux:**
+**Raspberry Pi**
 
 ```bash
 curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta
 ```
 
-**Windows:**
+Install OpenClaw on the Raspberry Pi, connect your messaging app, then ask the bot to run SmartHub.
 
-```powershell
-powershell -c "irm https://openclaw.ai/install.ps1 | iex"
-```
+**macOS host**
+
+Run `install.sh` on the macOS host. It detects Intel vs Apple Silicon, boots the matching Home Assistant OS VM in VirtualBox, creates the initial Home Assistant admin account, and syncs the generated token into `.env`. Do not try to run Home Assistant directly on the macOS host.
 
 ### 2. Set Up OpenClaw with a Messaging App
 
@@ -133,7 +129,7 @@ OpenClaw: Let's get your smart home running. Do you have Docker installed?
 
 You:      Docker version 27.5.1
 OpenClaw: Docker is ready. Starting Home Assistant...
-          Done. Open http://localhost:8123 in your browser.
+          Done. Open http://homeassistant.local:8123 in your browser.
           Create your admin account and let me know when you're done.
 
 You:      Done, created user "alice"
@@ -198,10 +194,8 @@ The agent shows a summary, waits for "yes", then executes. Skip the "yes" and th
 home-assistant/
 ├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
 ├── TOOLS.md                     # Skill router — maps devices to files
-├── docker-compose.yml           # Shared Home Assistant runtime
-├── docker-compose.linux.yml     # Linux / Raspberry Pi runtime overrides
-├── docker-compose.macos.yml     # Native macOS Docker Desktop runtime overrides
-├── install.sh                   # One-command installer (clone, port-resolve, wire ha-mcp)
+├── docker-compose.yml           # Runs Home Assistant
+├── install.sh                   # Raspberry Pi installer + macOS host bootstrap dispatcher
 ├── .env.example                 # Template — copy to .env, fill in HA_TOKEN
 ├── .claude/
 │   └── settings.json            # ha-mcp MCP server + PreToolUse approval hook
@@ -209,7 +203,8 @@ home-assistant/
 ├── scripts/
 │   ├── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
 │   │                            # explicitly confirmed in their latest message
-│   └── platform-env.sh          # Shared Linux/macOS runtime + URL selection helpers
+│   ├── macos-vm-bootstrap.sh    # VirtualBox + Home Assistant OS VM bootstrap on macOS hosts
+│   └── linux-guest-install.sh   # SmartHub runtime install on Raspberry Pi hosts
 │
 ├── tools/                       # Skill files — the agent's knowledge base
 │   ├── setup.md                 #   First-run setup flow (Docker → HA → token → .env)
@@ -286,11 +281,15 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 
 **OAuth redirect fails (Xiaomi, Google, etc.):**
 
-On the native macOS Docker Desktop path, start with the same-machine browser flow through `HA_URL` (usually `http://localhost:8123`).
+The OAuth login redirects to `homeassistant.local:8123` (or whichever port HA is running on — check `HA_URL` in `.env`). In the Raspberry Pi runtime path, `homeassistant.local` belongs to the Raspberry Pi, not the browser machine.
 
-Some integrations still insist on `homeassistant.local`. If OpenClaw tells you that the integration requires `homeassistant.local`, add a hosts entry that points `homeassistant.local` back to the current HA host, then retry the OAuth link. If you actually need Linux-style LAN parity on a Mac, move to the documented VM fallback instead of forcing the native path.
+First, on the Raspberry Pi, get the host IP:
 
-If you are using `Linux VM + SmartHub` or `Home Assistant OS in a VM`, keep the VM NIC on `Bridged Adapter`. Those VM paths only have local discovery and control while the Mac remains on the home LAN.
+```bash
+HA_HOST_IP=$(hostname -I | awk '{print $1}')
+```
+
+Then update the hosts file on the browser machine that is opening the OAuth link.
 
 *Windows* — run Command Prompt as administrator:
 
@@ -300,9 +299,9 @@ Then paste the command OpenClaw gave you:
 
 ![Paste the hosts command](docs/cmd-paste-command.png)
 
-*Mac / Linux:*
+*Mac / Linux browser machine:*
 ```bash
-echo "<HA_HOST_IP> homeassistant.local" | sudo tee -a /etc/hosts
+echo "${HA_HOST_IP} homeassistant.local" | sudo tee -a /etc/hosts
 ```
 
 **Tunnel not working:**

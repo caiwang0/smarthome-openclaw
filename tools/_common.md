@@ -9,6 +9,7 @@ ha-mcp handles authentication internally via HOMEASSISTANT_TOKEN env var.
 
 ## Network Info
 
-- Home Assistant: `http://homeassistant.local:<HA_PORT>` (read `HA_PORT` from `.env`; default 8123)
+- macOS host: only for `install.sh`, VirtualBox, and SSH bootstrap. Do not assume HA is running here.
+- Linux guest: Home Assistant, Docker, Avahi, and `homeassistant.local` live here. Read `HA_PORT` from `.env`; default 8123.
+- browser machine: open the dashboard or OAuth links here. On the LAN, use `http://homeassistant.local:<HA_PORT>`.
 - ha-mcp: stdio process (no port, no URL) — spawned by Claude Code or OpenClaw
-- mDNS: `homeassistant.local` resolves to the Pi's IP on the LAN

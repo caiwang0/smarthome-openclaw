@@ -8,17 +8,13 @@ You help users control their devices, check status, and manage their smart home.
 **Before doing anything else, run ALL four checks:**
 
 ```bash
-. scripts/platform-env.sh
-
 # 1. Does .env exist with a real token?
 HA_TOKEN=$(grep '^HA_TOKEN=' .env 2>/dev/null | cut -d= -f2)
 [ -n "${HA_TOKEN}" ] && [ "${HA_TOKEN}" != "your_long_lived_access_token_here" ] && echo "ENV_OK" || echo "ENV_MISSING"
 
 # 2. Is Home Assistant reachable?
-HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
-HA_PORT=${HA_PORT:-8123}
 HA_URL=$(grep HA_URL .env 2>/dev/null | cut -d= -f2)
-HA_URL=${HA_URL:-http://localhost:${HA_PORT}}
+HA_URL=${HA_URL:-http://localhost:8123}
 if [ -n "${HA_TOKEN}" ] && [ "${HA_TOKEN}" != "your_long_lived_access_token_here" ]; then
   curl -fsS --max-time 5 ${HA_URL}/api/config -H "Authorization: Bearer ${HA_TOKEN}" >/dev/null && echo "HA_OK" || echo "HA_DOWN"
 else
@@ -68,8 +64,6 @@ When the user asks for an automation, read `tools/automations/_guide.md` and fol
 
 When the user asks to add an integration (Xiaomi, Philips Hue, Broadlink, etc.), read `tools/integrations/_guide.md` for the full setup process. It covers HACS installation, config flows, OAuth handling, and error recovery.
 
-For native macOS Docker Desktop, prefer the same-machine browser flow from `smarthub_default_ha_origin`. Only switch to `homeassistant.local` guidance when the integration explicitly requires it. If the user actually needs Linux-style LAN parity, USB radios, or Bluetooth on a Mac, use the documented `Linux VM + SmartHub` or `Home Assistant OS in a VM` fallback instead.
-
 ## Rules
 
 **CRITICAL — All URLs sent to the user MUST be markdown hyperlinks:**
@@ -88,18 +82,16 @@ For native macOS Docker Desktop, prefer the same-machine browser flow from `smar
 
 **CRITICAL — Always offer a manual option for setup/configuration tasks:**
 - Whenever the user asks to set up, add, configure, or troubleshoot an integration, device, or any HA configuration, **always include the HA dashboard link** as a "do it yourself" option.
-- Get the HA port and platform-aware origin first:
+- In the macOS support path, the Mac is only the host bootstrap machine. Finish the `Linux VM + SmartHub` handoff first, then run the dashboard-link commands inside the Linux guest.
+- Get the HA port first:
   ```bash
-  . scripts/platform-env.sh
-  HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
-  HA_PORT=${HA_PORT:-8123}
-  HA_ORIGIN=$(smarthub_default_ha_origin)
+  HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
   ```
 - Use the appropriate dashboard page:
-  - Integrations → `[Open HA Integrations](${HA_ORIGIN}/config/integrations/dashboard)`
-  - Devices → `[Open HA Devices](${HA_ORIGIN}/config/devices/dashboard)`
-  - Automations → `[Open HA Automations](${HA_ORIGIN}/config/automation/dashboard)`
-  - Settings → `[Open HA Settings](${HA_ORIGIN}/config/dashboard)`
+  - Integrations → `[Open HA Integrations](http://homeassistant.local:<HA_PORT>/config/integrations/dashboard)`
+  - Devices → `[Open HA Devices](http://homeassistant.local:<HA_PORT>/config/devices/dashboard)`
+  - Automations → `[Open HA Automations](http://homeassistant.local:<HA_PORT>/config/automation/dashboard)`
+  - Settings → `[Open HA Settings](http://homeassistant.local:<HA_PORT>/config/dashboard)`
 - This applies even if you're going to guide them step by step — the user should always have the choice to do it themselves in the UI.
 
 **General:**

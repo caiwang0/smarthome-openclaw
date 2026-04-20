@@ -4,13 +4,21 @@ You are walking a new user through setting up SmartHub from scratch. They alread
 
 This workflow has two entrypoints:
 - the user explicitly asks for help setting up Home Assistant / SmartHub
-- `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
+- Raspberry Pi `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
 
-When this doc is entered from `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+When this doc is entered from Raspberry Pi `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+
+If `install.sh` just finished on a macOS host, stop here: the macOS installer installs VirtualBox if needed, detects Intel vs Apple Silicon, boots the official Home Assistant OS VM, creates the initial Home Assistant admin account, and syncs the generated token into `.env`. The browser UI is only for signing in afterward, not for first-run onboarding.
 
 Before telling the user setup is stuck, follow the recovery ladder in `tools/_errors.md`.
 
-When `install.sh` hands off here, use setup.md to decide which steps are already satisfied. The installer may already have created `.env`, selected `HA_PORT`, and pre-seeded Home Assistant auth.
+---
+
+## Host / Guest Boundary
+
+- **macOS host**: `install.sh` uses the macOS host only to install or verify VirtualBox, detect Intel vs Apple Silicon, boot the official Home Assistant OS VM, and drive the first-run Home Assistant bootstrap over the network APIs. Do not run Docker, `hostname -I`, `systemctl --user`, or Avahi commands on the macOS host.
+- **Raspberry Pi runtime**: every shell command in this setup guide runs on the Raspberry Pi that actually hosts SmartHub unless a step explicitly says "browser machine".
+- **Browser machine**: the user opens Home Assistant and OAuth links here. It may be the same Mac, another laptop, or a phone on the same LAN.
 
 ---
 
@@ -38,17 +46,14 @@ cd <repo_name>
 
 ---
 
-## Step 2: Check Docker / Docker Desktop
+## Step 2: Check Docker
 
 ```bash
-. ./scripts/platform-env.sh
-PLATFORM=$(smarthub_detect_platform)
 docker --version
-docker info >/dev/null && echo "DOCKER_READY"
 ```
 
-- If Docker is installed and `DOCKER_READY` prints → move to Step 3
-- If the current platform is `linux` and Docker is missing or not running → tell the user:
+- If Docker is installed → move to Step 3
+- If not installed → tell the user:
 
 > Docker is not installed. Run this to install it:
 > ```
@@ -58,15 +63,7 @@ docker info >/dev/null && echo "DOCKER_READY"
 > Then log out and back in (or restart your terminal) so the group change takes effect.
 > Let me know when Docker is ready.
 
-- If the current platform is `macos` and Docker is missing or `docker info` fails → tell the user:
-
-> Docker Desktop is required for the native macOS path. Install it, open it, and wait until `docker info` succeeds.
->
-> Native macOS support covers the mainstream SmartHub flow only. If you need USB radios, Bluetooth, or Linux-style low-level networking, use `Linux VM + SmartHub` or `Home Assistant OS in a VM` instead.
->
-> OpenClaw can guide parts of that VM setup, but the hypervisor GUI steps still require user action. If you guide the official macOS VM fallback, match the Home Assistant docs: VirtualBox image for the correct Mac architecture (`Intel` vs `Apple Silicon`), at least `2 GB RAM`, `2 vCPUs`, `EFI` enabled, and the NIC switched from `NAT` to `Bridged Adapter`. Mention `UTM` only when VirtualBox is unsupported and the user is already comfortable with VMs.
-
-Wait for confirmation, then verify again with the Step 2 command block.
+Wait for confirmation, then verify again with `docker --version`.
 
 ---
 
@@ -91,27 +88,15 @@ The token will be filled in later (Step 6). If `install.sh` already ran, `.env` 
 ## Step 4: Start Home Assistant
 
 ```bash
-. ./scripts/platform-env.sh
-
-compose_args=()
-for compose_file in $(smarthub_compose_files); do
-  compose_args+=(-f "$compose_file")
-done
-
-docker compose "${compose_args[@]}" up -d
+docker compose up -d
 ```
 
 Wait for HA to boot (usually 30-60 seconds on first run):
 
 ```bash
-. ./scripts/platform-env.sh
-
 # Read the actual HA port and token from .env
-HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
-HA_PORT=${HA_PORT:-8123}
 HA_URL=$(grep HA_URL .env | cut -d= -f2)
-HA_URL=${HA_URL:-http://localhost:${HA_PORT}}
-HA_ORIGIN=$(smarthub_default_ha_origin)
+HA_URL=${HA_URL:-http://localhost:8123}
 HA_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2)
 
 # Poll until HA responds on its actual port.
@@ -138,19 +123,19 @@ done
 
 ---
 
-## Step 4b: Linux only — Set Up mDNS for homeassistant.local
+## Step 4b: Set Up mDNS for homeassistant.local
 
-> **Only run this after HA is confirmed running (Step 4 polling succeeded).** Run this on Linux/Raspberry Pi installs. Skip it on macOS Docker Desktop, where the supported native path uses the local browser origin from `smarthub_default_ha_origin`.
+> **Only run this after HA is confirmed running (Step 4 polling succeeded).** This is a Raspberry Pi step. It broadcasts the Raspberry Pi IP so other devices on the LAN can reach HA — but only once HA is actually up.
 
 ```bash
 # Install avahi-utils if not already installed
 which avahi-publish >/dev/null 2>&1 || sudo apt-get install -y avahi-utils
 ```
 
-Create a systemd user service to broadcast `homeassistant.local`:
+Create a systemd user service on the Raspberry Pi to broadcast `homeassistant.local`:
 
 ```bash
-PI_IP=$(hostname -I | awk '{print $1}')
+HA_HOST_IP=$(hostname -I | awk '{print $1}')
 
 mkdir -p ~/.config/systemd/user
 
@@ -160,7 +145,7 @@ Description=Broadcast homeassistant.local via mDNS
 After=network.target avahi-daemon.service
 
 [Service]
-ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${PI_IP}
+ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${HA_HOST_IP}
 Restart=on-failure
 RestartSec=5
 
@@ -179,15 +164,14 @@ Verify it's working:
 avahi-resolve -n homeassistant.local
 ```
 
-Should show the Pi's IP.
+Should show the Raspberry Pi IP.
 
 ```bash
 # Get the HA port for user-facing messages
-HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
-HA_PORT=${HA_PORT:-8123}
+HA_PORT=$(grep HA_URL .env | grep -oP ':\K[0-9]+' || echo "8123")
 ```
 
-Any device on the same network can now reach Home Assistant at `http://homeassistant.local:${HA_PORT}`.
+Any browser machine on the same network can now reach Home Assistant at `http://homeassistant.local:${HA_PORT}`.
 
 > Do NOT tell the user about this step — just run it silently. It's infrastructure setup.
 
@@ -197,19 +181,17 @@ Any device on the same network can now reach Home Assistant at `http://homeassis
 
 > **If `.env` already has a real `HA_TOKEN`, onboarding was pre-seeded by `install.sh`. Skip Steps 5, 6, and 7 and continue with Step 8.**
 
-First, get the platform-aware HA origin and port:
+First, get the Raspberry Pi IP and HA port:
 
 ```bash
-. ./scripts/platform-env.sh
-HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
-HA_PORT=${HA_PORT:-8123}
-HA_ORIGIN=$(smarthub_default_ha_origin)
+HA_HOST_IP=$(hostname -I | awk '{print $1}')
+HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
 ```
 
 Tell the user, using the values you just obtained:
 
 > Home Assistant is running! Open this in your browser:
-> **<HA_ORIGIN>**
+> **http://<HA_HOST_IP>:<HA_PORT>**
 >
 > You'll see the onboarding wizard. Follow these steps:
 > 1. **Create your admin account** — pick a name, username, and password
@@ -247,42 +229,8 @@ Wait for the user to paste the token. It will look like: `eyJhbGciOiJIUzI1NiIs..
 Once you receive the token, write it to `.env`:
 
 ```bash
-python3 - ".env" "<PASTE_TOKEN_HERE>" <<'PY'
-import stat
-import sys
-import tempfile
-from pathlib import Path
-
-path = Path(sys.argv[1])
-token = sys.argv[2]
-existing_mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600
-lines = path.read_text().splitlines() if path.exists() else []
-
-updated = []
-replaced = False
-for line in lines:
-    if line.startswith("HA_TOKEN="):
-        updated.append("HA_TOKEN=" + token)
-        replaced = True
-    else:
-        updated.append(line)
-
-if not replaced:
-    updated.append("HA_TOKEN=" + token)
-
-with tempfile.NamedTemporaryFile(
-    mode="w",
-    encoding="utf-8",
-    dir=path.parent,
-    prefix=f".{path.name}.",
-    delete=False,
-) as tmp:
-    tmp.write("\n".join(updated) + "\n")
-    temp_path = Path(tmp.name)
-
-temp_path.chmod(existing_mode or 0o600)
-temp_path.replace(path)
-PY
+# Read current .env, replace the HA_TOKEN line
+sed -i "s|HA_TOKEN=.*|HA_TOKEN=<PASTE_TOKEN_HERE>|" .env
 ```
 
 Replace `<PASTE_TOKEN_HERE>` with the actual token the user provided.
@@ -294,14 +242,8 @@ Replace `<PASTE_TOKEN_HERE>` with the actual token the user provided.
 ha-mcp is spawned on demand (no persistent service to restart). Verify it can connect:
 
 ```bash
-. ./scripts/platform-env.sh
-HA_PORT=$(grep '^HA_PORT=' .env 2>/dev/null | cut -d= -f2)
-HA_PORT=${HA_PORT:-8123}
-HOMEASSISTANT_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2)
-HOMEASSISTANT_URL=$(grep HA_URL .env | cut -d= -f2)
-HOMEASSISTANT_URL=${HOMEASSISTANT_URL:-http://localhost:${HA_PORT}}
-HOMEASSISTANT_TOKEN="$HOMEASSISTANT_TOKEN" \
-HOMEASSISTANT_URL="$HOMEASSISTANT_URL" \
+HOMEASSISTANT_TOKEN=$(grep HA_TOKEN .env | cut -d= -f2) \
+HOMEASSISTANT_URL=$(grep HA_URL .env | cut -d= -f2) \
 uvx ha-mcp@7.2.0 --smoke-test
 ```
 
@@ -362,5 +304,3 @@ Common issues:
 - Check Docker is running: `docker info`
 - Check docker-compose.yml exists in the current directory
 - Try: `docker compose down && docker compose up -d`
-- On macOS, make sure Docker Desktop is still open. If the user actually needs USB radios, Bluetooth, or Linux-style low-level networking, redirect them to `Linux VM + SmartHub` or `Home Assistant OS in a VM` instead. OpenClaw can guide parts of that VM setup, but the hypervisor GUI steps still require user action.
-- A Mac-hosted VM only has local discovery and control while the Mac remains on the home LAN.

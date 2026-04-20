@@ -1,5 +1,14 @@
 # Error Handling — Runtime Troubleshooting
 
+## macOS host bootstrap issues
+
+| Symptom | Likely Cause | Action |
+|---|---|---|
+| VirtualBox install failed | macOS blocked the installer or system extension | Re-run `install.sh` on the macOS host, approve the VirtualBox prompts, then retry the Home Assistant OS VM bootstrap. |
+| Home Assistant OS VM never appears on the LAN | VirtualBox boot failed or the wrong Intel/Apple Silicon disk image was attached | Open VirtualBox on the macOS host, confirm the VM architecture matches the Mac, inspect the VM console, and rerun `install.sh`. |
+| Automatic account/token bootstrap failed | Home Assistant finished onboarding before the installer could seed the first user, or the local API bootstrap could not reach the VM | Delete the VM and `~/.smarthub-vm`, rerun `install.sh`, and avoid opening the UI until the installer prints the generated credentials. |
+| Home Assistant disappears when the Mac leaves home | The Home Assistant OS VM still depends on the Mac host staying powered on and on the home LAN | Move Home Assistant / SmartHub to a dedicated Raspberry Pi if you need an always-on home hub. |
+
 ## ha-mcp Tool Errors
 
 | ToolError message | Meaning | Action |
@@ -23,15 +32,6 @@
 | All devices unavailable | HA restarted or integration crashed | Check `docker compose logs homeassistant --tail 50`. Reload the integration via `ha_config_entries_get` to find the entry, then `ha_call_service` with `domain: homeassistant, service: reload_config_entry`. |
 | HA unreachable | Network issue or HA overloaded | Verify HA is running with the same token-aware probe as setup: `HA_TOKEN=$(grep HA_TOKEN .env 2>/dev/null | cut -d= -f2); if [ -n "$HA_TOKEN" ] && [ "$HA_TOKEN" != "your_long_lived_access_token_here" ]; then curl -fsS ${HA_URL:-http://localhost:8123}/api/config -H "Authorization: Bearer $HA_TOKEN" >/dev/null; else curl -s ${HA_URL:-http://localhost:8123}/api/ 2>/dev/null \| grep -q "API running"; fi` |
 | Token rejected (401) | Token expired or invalid | Have user create a new long-lived access token in HA UI and update `.env`. |
-
-## Platform Notes
-
-- Native macOS Docker Desktop support covers the mainstream SmartHub flow only.
-- If the user needs USB radios, Bluetooth, or Linux-style low-level networking, use `Linux VM + SmartHub` or `Home Assistant OS in a VM` instead.
-- OpenClaw can guide parts of the VM setup, but hypervisor GUI steps still require user action.
-- If guiding the official macOS VM fallback, match the Home Assistant guide: `VirtualBox`, image for the correct Mac architecture (`Intel` vs `Apple Silicon`), at least `2 GB RAM`, `2 vCPUs`, `EFI`, `Bridged Adapter`, and `UTM` only as an experienced-user fallback when VirtualBox is unsupported.
-- A Mac-hosted VM only has local discovery and control while the Mac remains on the home LAN.
-- If `docker info` fails on macOS, start Docker Desktop before retrying the rest of the recovery ladder.
 
 **Note:** The old "Port conflict" row (referencing Step 3b) is intentionally removed — there is no API port to conflict. HA port conflicts are handled by `install.sh` and `tools/setup.md` Step 3.
 
@@ -65,6 +65,7 @@ Before telling the user the system is stuck, follow this recovery ladder for rec
      ```
    - Specific integration reload: use `ha_config_entries_get` to find the entry ID, then reload it via `ha_call_service` with `domain: homeassistant`, `service: reload_config_entry`, and `data: { "entry_id": "<entry_id>" }`.
 5. **Resume the checkpointed install** — if install bootstrap was interrupted, rerun `install.sh` from the repo root so it can restore `.env` from `.openclaw/install-state.json` or stop safely before HA is started with partial bootstrap state.
+   - On a macOS host, rerun `install.sh` from the macOS host so it can continue the VirtualBox + Home Assistant OS VM checkpoint instead of creating a second VM blindly.
 6. **Escalate** — stop and ask the user instead of guessing when the next step would cross a safety boundary:
    - ask before deleting `ha-config`
    - ask before replacing an existing token/account

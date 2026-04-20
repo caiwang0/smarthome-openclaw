@@ -68,31 +68,22 @@ class IntegrationDocsTests(unittest.TestCase):
                 f"fingerprint schema drift in {filename}",
             )
 
-    def test_integration_docs_define_native_macos_branch_and_fallbacks(self) -> None:
-        guide = (REPO_ROOT / "tools" / "integrations" / "_guide.md").read_text().lower()
-        xiaomi = (REPO_ROOT / "tools" / "xiaomi-home" / "_integration.md").read_text().lower()
-
-        self.assertIn("native macos docker desktop", guide)
-        self.assertIn("same-machine browser flow", guide)
-        self.assertIn("linux vm + smarthub", guide)
-        self.assertIn("home assistant os in a vm", guide)
-        self.assertIn("if an integration insists on `homeassistant.local`", guide)
-        self.assertIn("hosts file entry", guide)
-
-        self.assertIn("native macos docker desktop", xiaomi)
-        self.assertIn("same-machine browser flow", xiaomi)
-        self.assertIn("homeassistant.local", xiaomi)
-        self.assertIn("linux vm + smarthub", xiaomi)
-        self.assertIn("home assistant os in a vm", xiaomi)
-
-    def test_integration_dashboard_link_is_platform_aware(self) -> None:
+    def test_host_guest_browser_boundaries_are_explicit(self) -> None:
         guide = (REPO_ROOT / "tools" / "integrations" / "_guide.md").read_text()
+        common = (REPO_ROOT / "tools" / "_common.md").read_text()
 
-        self.assertIn("smarthub_default_ha_origin", guide)
-        self.assertNotIn(
-            "http://homeassistant.local:<HA_PORT>/config/integrations/dashboard",
-            guide,
-        )
+        self.assertIn("macOS host: do not run `hostname -I`", guide)
+        self.assertIn("macOS host: do not run `systemctl --user`", guide)
+        self.assertIn("macOS host: do not run `avahi-publish-address`", guide)
+        self.assertIn("Linux guest: Home Assistant, Docker, Avahi", guide)
+        self.assertIn("Linux guest: `hostname -I`", guide)
+        self.assertIn("browser machine", guide)
+        self.assertIn("Inside the Linux guest, run `HA_GUEST_IP=$(hostname -I | awk '{print $1}')`", guide)
+        self.assertIn("On the browser machine", guide)
+
+        self.assertIn("macOS host", common)
+        self.assertIn("Linux guest", common)
+        self.assertIn("browser machine", common)
 
 
 if __name__ == "__main__":
