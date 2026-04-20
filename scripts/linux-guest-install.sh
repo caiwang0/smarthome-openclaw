@@ -17,11 +17,7 @@ if [ -z "${WORKSPACE:-}" ]; then
   WORKSPACE="$HOME/.openclaw/workspace"
 fi
 
-if [ ! -d "$WORKSPACE" ]; then
-  echo "ERROR: OpenClaw workspace not found at $WORKSPACE"
-  echo "Make sure OpenClaw is installed and configured first."
-  exit 1
-fi
+mkdir -p "$WORKSPACE"
 
 echo "Using workspace: $WORKSPACE"
 
@@ -197,10 +193,29 @@ else
 fi
 complete_phase
 
-# --- Patch openclaw.json to add bootstrap-extra-files ---
+# --- Create or patch openclaw.json ---
 if [ ! -f "$CONFIG_FILE" ]; then
-  echo "ERROR: openclaw.json not found at $CONFIG_FILE"
-  exit 1
+  mkdir -p "$(dirname "$CONFIG_FILE")"
+  python3 -c "
+import json
+from pathlib import Path
+
+config_path = Path('$CONFIG_FILE')
+workspace = '$WORKSPACE'
+config_path.write_text(
+    json.dumps(
+        {
+            'agents': {
+                'defaults': {
+                    'workspace': workspace
+                }
+            }
+        },
+        indent=2,
+    ) + '\n'
+)
+"
+  echo "Created minimal openclaw.json at $CONFIG_FILE."
 fi
 
 start_phase "patch openclaw config"

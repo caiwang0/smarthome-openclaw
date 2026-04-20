@@ -7,7 +7,7 @@
 | VirtualBox install failed | macOS blocked the installer or system extension | Re-run `install.sh` on the macOS host, approve the VirtualBox prompts, then retry the Home Assistant OS VM bootstrap. |
 | Home Assistant OS VM never appears on the LAN | VirtualBox boot failed or the wrong Intel/Apple Silicon disk image was attached | Open VirtualBox on the macOS host, confirm the VM architecture matches the Mac, inspect the VM console, and rerun `install.sh`. |
 | Automatic account/token bootstrap failed | Home Assistant finished onboarding before the installer could seed the first user, or the local API bootstrap could not reach the VM | Delete the VM and `~/.smarthub-vm`, rerun `install.sh`, and avoid opening the UI until the installer prints the generated credentials. |
-| Home Assistant disappears when the Mac leaves home | The Home Assistant OS VM still depends on the Mac host staying powered on and on the home LAN | Move Home Assistant / SmartHub to dedicated Linux hardware if you need an always-on home hub. |
+| Home Assistant disappears when the Mac leaves home | The Home Assistant OS VM still depends on the Mac host staying powered on and on the home LAN | Move Home Assistant / SmartHub to a dedicated Raspberry Pi if you need an always-on home hub. |
 
 ## ha-mcp Tool Errors
 

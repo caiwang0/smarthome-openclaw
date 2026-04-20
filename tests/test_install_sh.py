@@ -145,6 +145,7 @@ exit 1
                 "OPENCLAW_WORKSPACE": str(workspace),
                 "FIXTURE_REPO": str(repo_copy),
                 "SMARTHUB_TEST_UNAME": "Linux",
+                "SMARTHUB_TEST_RPI_MODEL": "Raspberry Pi 5 Model B Rev 1.0",
                 "SMARTHUB_VM_ENV_FILE": str(root / ".env"),
                 "SMARTHUB_VM_ENV_EXAMPLE_FILE": str(REPO_ROOT / ".env.example"),
             }
@@ -237,6 +238,19 @@ exit 1
 
         self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
         self.assertIn("run_linux_guest_install", proc.stdout)
+
+    def test_linux_host_path_rejects_non_raspberry_pi_hosts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_ARCH"] = "x86_64"
+            env["SMARTHUB_TEST_RPI_MODEL"] = "Generic Linux Host"
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("unsupported linux host", combined)
+            self.assertIn("raspberry pi hosts and macos hosts only", combined)
 
     def test_macos_host_path_installs_virtualbox_with_brew_when_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
