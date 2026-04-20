@@ -22,8 +22,12 @@ class InstallScriptTests(unittest.TestCase):
         scripts = {
             "git": """#!/usr/bin/env bash
 set -euo pipefail
+if [ -n "${STUB_LOG:-}" ]; then
+  printf 'git %s\\n' "$*" >> "$STUB_LOG"
+fi
 if [ "${1:-}" = "clone" ]; then
   cp -a "$FIXTURE_REPO" "$3"
+  mkdir -p "$3/.git"
   exit 0
 fi
 if [ "${1:-}" = "pull" ]; then
@@ -190,9 +194,13 @@ exit 1
         )
         checkpoint.chmod(0o600)
 
-    def run_install(self, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    def run_install(
+        self,
+        env: dict[str, str],
+        script_path: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["bash", str(INSTALL_SH)],
+            ["bash", str(script_path or INSTALL_SH)],
             capture_output=True,
             text=True,
             env=env,
@@ -223,6 +231,24 @@ exit 1
             combined = (proc.stdout + proc.stderr).lower()
             self.assertIn("virtualbox", combined)
             self.assertNotIn("workspace not found", combined)
+
+    def test_install_bootstraps_repo_when_run_from_standalone_script(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, target, _ = self.prepare_env(tmp)
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            standalone = Path(tmp) / "install.sh"
+            standalone.write_text(INSTALL_SH.read_text())
+            standalone.chmod(0o755)
+
+            proc = self.run_install(env, standalone)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertTrue((target / "scripts" / "linux-guest-install.sh").exists())
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertNotIn("installer helper missing", combined)
+
+            git_ops = Path(env["STUB_LOG"]).read_text().splitlines()
+            self.assertEqual(git_ops, ["git clone https://github.com/caiwang0/smarthome-openclaw.git " + str(target)])
 
     def test_linux_guest_install_helper_exposes_entrypoint(self) -> None:
         helper = REPO_ROOT / "scripts" / "linux-guest-install.sh"

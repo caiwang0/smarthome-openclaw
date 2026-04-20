@@ -13,6 +13,82 @@ PLACEHOLDER_TOKEN="your_long_lived_access_token_here"
 INSTALL_STATE_REL=".openclaw/install-state.json"
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+smarthub_resolve_workspace() {
+  local workspace=""
+
+  if [ -n "${OPENCLAW_WORKSPACE:-}" ]; then
+    workspace="$OPENCLAW_WORKSPACE"
+  elif [ -f "$CONFIG_FILE" ]; then
+    workspace="$(python3 - "$CONFIG_FILE" <<'PY'
+import json
+import os
+import sys
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        config = json.load(handle)
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(0)
+
+value = config.get("agents", {}).get("defaults", {}).get("workspace", "")
+if value:
+    print(os.path.expanduser(value))
+PY
+)"
+  fi
+
+  if [ -z "$workspace" ]; then
+    workspace="$HOME/.openclaw/workspace"
+  fi
+
+  printf '%s\n' "$workspace"
+}
+
+smarthub_repo_target() {
+  local workspace
+  workspace="$(smarthub_resolve_workspace)"
+  printf '%s/%s\n' "$workspace" "$REPO_DIR"
+}
+
+smarthub_bootstrap_repo_if_needed() {
+  local linux_helper="$SCRIPT_DIR/scripts/linux-guest-install.sh"
+  local macos_helper="$SCRIPT_DIR/scripts/macos-vm-bootstrap.sh"
+  local workspace
+  local target
+
+  if [ -f "$linux_helper" ] && [ -f "$macos_helper" ]; then
+    return 0
+  fi
+
+  target="$(smarthub_repo_target)"
+  if [ "${SMARTHUB_BOOTSTRAP_REEXEC:-0}" = "1" ] || [ "$SCRIPT_DIR" = "$target" ]; then
+    return 0
+  fi
+
+  workspace="$(dirname "$target")"
+  mkdir -p "$workspace"
+
+  echo "Installer helpers missing from $SCRIPT_DIR. Bootstrapping repo checkout at $target..."
+  if [ -d "$target/.git" ]; then
+    echo "Repo already exists, pulling latest..."
+    (
+      cd "$target"
+      git pull origin main
+    )
+  else
+    echo "Cloning smarthome-openclaw..."
+    git clone "$REPO_URL" "$target"
+  fi
+
+  if [ ! -f "$target/install.sh" ]; then
+    fail_install \
+      "Bootstrap checkout at $target is missing install.sh." \
+      "Remove $target and rerun the installer to fetch a clean SmartHub repo."
+  fi
+
+  SMARTHUB_BOOTSTRAP_REEXEC=1 exec bash "$target/install.sh" "$@"
+}
+
 smarthub_uname_s() {
   if [ -n "${SMARTHUB_TEST_UNAME:-}" ]; then
     printf '%s\n' "$SMARTHUB_TEST_UNAME"
@@ -106,6 +182,8 @@ run_macos_host_bootstrap() {
     "macOS VM bootstrap helper missing." \
     "Restore scripts/macos-vm-bootstrap.sh before rerunning SmartHub."
 }
+
+smarthub_bootstrap_repo_if_needed "$@"
 
 LINUX_GUEST_HELPER="$SCRIPT_DIR/scripts/linux-guest-install.sh"
 if [ ! -f "$LINUX_GUEST_HELPER" ]; then

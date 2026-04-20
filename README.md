@@ -71,15 +71,10 @@ If you need the full SmartHub runtime, run this repo on a Raspberry Pi and use m
 
 ## Quick Install
 
-If OpenClaw is already running on the machine that will host SmartHub, tell your bot to clone or update the repo and run the installer from the repo root:
+If OpenClaw is already running on the machine that will host SmartHub, tell your bot to run the one-command installer:
 
 ```bash
-if [ -d "$HOME/smarthome-openclaw/.git" ]; then
-  cd "$HOME/smarthome-openclaw" && git pull --ff-only
-else
-  git clone https://github.com/caiwang0/smarthome-openclaw.git "$HOME/smarthome-openclaw" && cd "$HOME/smarthome-openclaw"
-fi
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh
 ```
 
 The installer auto-detects the host:
@@ -113,15 +108,10 @@ Make sure the bot is connected to the same machine that will host SmartHub.
 
 ### 3. Tell OpenClaw to Install SmartHub
 
-Once the bot comes online, tell it to clone or update the repo and run the installer from the repo root:
+Once the bot comes online, tell it to run the one-command installer:
 
 ```bash
-if [ -d "$HOME/smarthome-openclaw/.git" ]; then
-  cd "$HOME/smarthome-openclaw" && git pull --ff-only
-else
-  git clone https://github.com/caiwang0/smarthome-openclaw.git "$HOME/smarthome-openclaw" && cd "$HOME/smarthome-openclaw"
-fi
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh
 ```
 
 The installer auto-detects the host:

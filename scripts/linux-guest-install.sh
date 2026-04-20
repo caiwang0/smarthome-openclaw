@@ -184,13 +184,18 @@ on_install_exit() {
 trap 'on_install_exit $?' EXIT
 
 start_phase "repo sync"
-if [ -d "$TARGET/.git" ]; then
-  echo "Repo already exists, pulling latest..."
-  cd "$TARGET" && git pull origin main
+if [ "${SMARTHUB_BOOTSTRAP_REEXEC:-0}" = "1" ] && [ "$SCRIPT_DIR" = "$TARGET" ] && [ -d "$TARGET/.git" ]; then
+  echo "Repo already bootstrapped by install.sh."
 else
-  echo "Cloning smarthome-openclaw..."
-  git clone "$REPO_URL" "$TARGET"
+  if [ -d "$TARGET/.git" ]; then
+    echo "Repo already exists, pulling latest..."
+    cd "$TARGET" && git pull origin main
+  else
+    echo "Cloning smarthome-openclaw..."
+    git clone "$REPO_URL" "$TARGET"
+  fi
 fi
+unset SMARTHUB_BOOTSTRAP_REEXEC
 complete_phase
 
 # --- Create or patch openclaw.json ---
