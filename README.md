@@ -54,15 +54,18 @@ Say "I'm leaving for work" and OpenClaw turns off lights, sets the AC to eco, an
 
 ## macOS Support
 
-SmartHub supports macOS through **Linux VM + SmartHub** only.
+SmartHub's full runtime remains Linux-first. On macOS, `install.sh` now follows the official Home Assistant VM path instead of the old Ubuntu guest bootstrap.
 
-- `install.sh` on the macOS host checks or installs VirtualBox, provisions a Linux VM, bootstraps OpenClaw in the guest, then reruns the SmartHub installer there.
-- Home Assistant, Docker, mDNS, and the SmartHub runtime live inside that Linux guest. The macOS host is only the bootstrap machine.
+- `install.sh` on the macOS host checks or installs VirtualBox, detects whether the Mac is Intel or Apple Silicon, and downloads the matching Home Assistant OS disk image.
+- Intel Macs use the official `haos_ova` VirtualBox image.
+- Apple Silicon Macs use the official `haos_generic-aarch64` VirtualBox image.
+- The installer creates a bridged VirtualBox VM, attaches the matching disk image, starts Home Assistant OS, creates the initial Home Assistant admin account, and generates a long-lived access token.
 - Keep the Mac powered on and on the home LAN while you expect local discovery or direct device control.
 
 **Native macOS Docker Desktop is not supported** for the SmartHub runtime.
 
-If you only want the official Home Assistant path on a Mac, use **Home Assistant OS in a VM**. That is the HA-only alternative, not the SmartHub repo path.
+`install.sh` on macOS now waits for Home Assistant to boot, seeds the first admin account, and syncs the generated long-lived access token into `.env` before handing you the login URL.
+If you need the full SmartHub runtime, keep running this repo on Linux / Raspberry Pi and use macOS only as a browser machine.
 
 ---
 
@@ -74,7 +77,7 @@ If you only want the official Home Assistant path on a Mac, use **Home Assistant
 
 OpenClaw will install everything and walk you through setup automatically.
 
-**macOS host?** Run the same `install.sh` command in Terminal on the macOS host. The installer provisions the Linux VM first, then continues inside the guest.
+**macOS host?** Run the same `install.sh` command in Terminal on the macOS host. The installer detects Intel vs Apple Silicon, downloads the matching official Home Assistant OS VirtualBox image, starts the VM, and bootstraps the initial Home Assistant account and token for you.
 
 ---
 
@@ -94,7 +97,7 @@ Install OpenClaw on the Linux machine, connect your messaging app, then ask the 
 
 **macOS host**
 
-Run `install.sh` on the macOS host. It provisions the Linux VM, installs OpenClaw in the guest if needed, and then continues the SmartHub install there. Do not try to run Home Assistant directly on the macOS host.
+Run `install.sh` on the macOS host. It detects Intel vs Apple Silicon, boots the matching Home Assistant OS VM in VirtualBox, and stops at browser onboarding. Do not try to run Home Assistant directly on the macOS host.
 
 **Windows**
 
@@ -206,8 +209,8 @@ home-assistant/
 ├── scripts/
 │   ├── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
 │   │                            # explicitly confirmed in their latest message
-│   ├── macos-vm-bootstrap.sh    # VirtualBox + Ubuntu VM bootstrap on macOS hosts
-│   └── linux-guest-install.sh   # SmartHub runtime install inside the Linux guest
+│   ├── macos-vm-bootstrap.sh    # VirtualBox + Home Assistant OS VM bootstrap on macOS hosts
+│   └── linux-guest-install.sh   # SmartHub runtime install on Linux hosts/guests
 │
 ├── tools/                       # Skill files — the agent's knowledge base
 │   ├── setup.md                 #   First-run setup flow (Docker → HA → token → .env)

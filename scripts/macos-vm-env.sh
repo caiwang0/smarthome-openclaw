@@ -27,8 +27,59 @@ smarthub_vm_name() {
   printf '%s\n' "${SMARTHUB_VM_NAME:-smarthub-vm}"
 }
 
-smarthub_vm_hostname() {
-  printf '%s\n' "${SMARTHUB_VM_HOSTNAME:-smarthub-vm}"
+smarthub_vm_virtualbox_platform_arch() {
+  case "$(smarthub_vm_arch)" in
+    amd64)
+      printf '%s\n' "x86"
+      ;;
+    arm64)
+      printf '%s\n' "arm"
+      ;;
+  esac
+}
+
+smarthub_vm_virtualbox_ostype() {
+  case "$(smarthub_vm_arch)" in
+    amd64)
+      printf '%s\n' "Oracle_64"
+      ;;
+    arm64)
+      printf '%s\n' "Oracle_arm64"
+      ;;
+  esac
+}
+
+smarthub_vm_virtualbox_graphics_controller() {
+  case "$(smarthub_vm_arch)" in
+    amd64)
+      printf '%s\n' "vmsvga"
+      ;;
+    arm64)
+      printf '%s\n' "qemuramfb"
+      ;;
+  esac
+}
+
+smarthub_vm_haos_asset_basename() {
+  case "$(smarthub_vm_arch)" in
+    amd64)
+      printf '%s\n' "haos_ova"
+      ;;
+    arm64)
+      printf '%s\n' "haos_generic-aarch64"
+      ;;
+  esac
+}
+
+smarthub_vm_disk_extension() {
+  case "$(smarthub_vm_arch)" in
+    amd64)
+      printf '%s\n' "vdi"
+      ;;
+    arm64)
+      printf '%s\n' "vmdk"
+      ;;
+  esac
 }
 
 smarthub_vm_state_dir() {
@@ -36,67 +87,15 @@ smarthub_vm_state_dir() {
 }
 
 smarthub_vm_state_file() {
-  printf '%s/bootstrap-state.json\n' "$(smarthub_vm_state_dir)"
+  printf '%s\n' "$(smarthub_vm_state_dir)/bootstrap-state.json"
 }
 
 smarthub_vm_cache_dir() {
-  printf '%s/cache\n' "$(smarthub_vm_state_dir)"
+  printf '%s\n' "$(smarthub_vm_state_dir)/cache"
 }
 
-smarthub_vm_iso_filename() {
-  case "$(smarthub_vm_arch)" in
-    amd64)
-      printf '%s\n' "${SMARTHUB_VM_ISO_FILENAME:-ubuntu-24.04.2-live-server-amd64.iso}"
-      ;;
-    arm64)
-      printf '%s\n' "${SMARTHUB_VM_ISO_FILENAME:-ubuntu-24.04.2-live-server-arm64.iso}"
-      ;;
-  esac
-}
-
-smarthub_vm_iso_url() {
-  if [ -n "${SMARTHUB_VM_ISO_URL:-}" ]; then
-    printf '%s\n' "$SMARTHUB_VM_ISO_URL"
-    return
-  fi
-
-  printf 'https://releases.ubuntu.com/noble/%s\n' "$(smarthub_vm_iso_filename)"
-}
-
-smarthub_vm_iso_path() {
-  printf '%s/%s\n' "$(smarthub_vm_cache_dir)" "$(smarthub_vm_iso_filename)"
-}
-
-smarthub_vm_disk_path() {
-  printf '%s/%s.vdi\n' "$(smarthub_vm_state_dir)" "$(smarthub_vm_name)"
-}
-
-smarthub_vm_ram_mb() {
-  printf '%s\n' "${SMARTHUB_VM_RAM_MB:-2048}"
-}
-
-smarthub_vm_cpus() {
-  printf '%s\n' "${SMARTHUB_VM_CPUS:-2}"
-}
-
-smarthub_vm_disk_mb() {
-  printf '%s\n' "${SMARTHUB_VM_DISK_MB:-32768}"
-}
-
-smarthub_vm_ssh_port() {
-  printf '%s\n' "${SMARTHUB_VM_SSH_PORT:-2222}"
-}
-
-smarthub_vm_bootstrap_user() {
-  printf '%s\n' "${SMARTHUB_VM_BOOTSTRAP_USER:-smarthub}"
-}
-
-smarthub_vm_bootstrap_password_file() {
-  printf '%s/bootstrap-password.txt\n' "$(smarthub_vm_state_dir)"
-}
-
-smarthub_vm_askpass_script() {
-  printf '%s/ssh-askpass.sh\n' "$(smarthub_vm_state_dir)"
+smarthub_vm_bootstrap_result_file() {
+  printf '%s\n' "$(smarthub_vm_state_dir)/ha-bootstrap.json"
 }
 
 smarthub_vm_bridged_adapter() {
@@ -111,9 +110,26 @@ smarthub_vm_bridged_adapter() {
   fi
 
   if command -v route >/dev/null 2>&1; then
-    local adapter
+    local adapter resolved_adapter
     adapter="$(route get default 2>/dev/null | awk '/interface:/{print $2; exit}')"
     if [ -n "$adapter" ]; then
+      if command -v VBoxManage >/dev/null 2>&1; then
+        resolved_adapter="$(
+          VBoxManage list bridgedifs 2>/dev/null | awk -v iface="$adapter" '
+            $1 == "Name:" {
+              name = substr($0, index($0, $2))
+              if (name == iface || index(name, iface ":") == 1) {
+                print name
+                exit
+              }
+            }
+          '
+        )"
+        if [ -n "$resolved_adapter" ]; then
+          printf '%s\n' "$resolved_adapter"
+          return
+        fi
+      fi
       printf '%s\n' "$adapter"
       return
     fi
@@ -124,20 +140,40 @@ smarthub_vm_bridged_adapter() {
     "Set SMARTHUB_VM_BRIDGE_ADAPTER to the interface name you use for internet access, then rerun SmartHub."
 }
 
-smarthub_vm_nat_nic() {
-  printf '%s\n' "nat"
+smarthub_vm_ram_mb() {
+  printf '%s\n' "${SMARTHUB_VM_RAM_MB:-2048}"
 }
 
-smarthub_vm_ssh_max_attempts() {
-  printf '%s\n' "${SMARTHUB_VM_SSH_MAX_ATTEMPTS:-60}"
+smarthub_vm_cpus() {
+  printf '%s\n' "${SMARTHUB_VM_CPUS:-2}"
 }
 
-smarthub_vm_ssh_retry_delay() {
-  printf '%s\n' "${SMARTHUB_VM_SSH_RETRY_DELAY:-5}"
+smarthub_vm_ha_base_url() {
+  printf '%s\n' "${SMARTHUB_VM_HA_BASE_URL:-http://homeassistant.local:8123}"
 }
 
-smarthub_vm_guest_repo_dir() {
-  printf '%s\n' "${SMARTHUB_VM_GUEST_REPO_DIR:-/home/$(smarthub_vm_bootstrap_user)/$REPO_DIR}"
+smarthub_vm_ha_admin_name() {
+  printf '%s\n' "${SMARTHUB_VM_HA_ADMIN_NAME:-OpenClaw}"
+}
+
+smarthub_vm_ha_admin_username() {
+  printf '%s\n' "${SMARTHUB_VM_HA_ADMIN_USERNAME:-openclaw}"
+}
+
+smarthub_vm_ha_bootstrap_timeout_seconds() {
+  printf '%s\n' "${SMARTHUB_VM_HA_BOOTSTRAP_TIMEOUT_SECONDS:-900}"
+}
+
+smarthub_vm_ha_bootstrap_poll_interval_seconds() {
+  printf '%s\n' "${SMARTHUB_VM_HA_BOOTSTRAP_POLL_INTERVAL_SECONDS:-5}"
+}
+
+smarthub_vm_env_file() {
+  printf '%s\n' "${SMARTHUB_VM_ENV_FILE:-$SCRIPT_DIR/.env}"
+}
+
+smarthub_vm_env_example_file() {
+  printf '%s\n' "${SMARTHUB_VM_ENV_EXAMPLE_FILE:-$SCRIPT_DIR/.env.example}"
 }
 
 smarthub_vm_dry_run_enabled() {

@@ -4,9 +4,11 @@ You are walking a new user through setting up SmartHub from scratch. They alread
 
 This workflow has two entrypoints:
 - the user explicitly asks for help setting up Home Assistant / SmartHub
-- `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
+- Linux `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
 
-When this doc is entered from `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+When this doc is entered from Linux `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+
+If `install.sh` just finished on a macOS host, stop here: the macOS installer installs VirtualBox if needed, detects Intel vs Apple Silicon, boots the official Home Assistant OS VM, creates the initial Home Assistant admin account, and syncs the generated token into `.env`. The browser UI is only for signing in afterward, not for first-run onboarding.
 
 Before telling the user setup is stuck, follow the recovery ladder in `tools/_errors.md`.
 
@@ -14,8 +16,8 @@ Before telling the user setup is stuck, follow the recovery ladder in `tools/_er
 
 ## Host / Guest Boundary
 
-- **macOS host**: `install.sh` uses the macOS host only to install or verify VirtualBox, provision the Linux VM, wait for SSH, and hand off into the guest. Do not run Docker, `hostname -I`, `systemctl --user`, or Avahi commands on the macOS host.
-- **Linux guest**: every shell command in this setup guide runs inside the Linux guest unless a step explicitly says "browser machine". Home Assistant, Docker, mDNS, and SmartHub all live here.
+- **macOS host**: `install.sh` uses the macOS host only to install or verify VirtualBox, detect Intel vs Apple Silicon, boot the official Home Assistant OS VM, and drive the first-run Home Assistant bootstrap over the network APIs. Do not run Docker, `hostname -I`, `systemctl --user`, or Avahi commands on the macOS host.
+- **Linux runtime**: every shell command in this setup guide runs on the Linux machine that actually hosts SmartHub unless a step explicitly says "browser machine". On a VM-based setup that is the Linux guest; on a normal Linux box or Raspberry Pi it is the host itself.
 - **Browser machine**: the user opens Home Assistant and OAuth links here. It may be the same Mac, another laptop, or a phone on the same LAN.
 
 ---

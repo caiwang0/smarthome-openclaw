@@ -86,7 +86,7 @@ main() {
     *)
       fail_install \
         "Unsupported host OS for SmartHub installer: $(smarthub_uname_s)." \
-        "Supported SmartHub host paths are Linux and macOS host bootstrap into Linux VM + SmartHub."
+        "Supported SmartHub host paths are Linux and macOS host bootstrap into a Home Assistant OS VM."
       ;;
   esac
 }
