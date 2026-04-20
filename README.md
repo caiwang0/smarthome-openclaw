@@ -71,13 +71,16 @@ If you need the full SmartHub runtime, run this repo on a Raspberry Pi and use m
 
 ## Quick Install
 
-**Raspberry Pi with OpenClaw already running?** Tell your bot:
+If OpenClaw is already running on the machine that will host SmartHub, tell your bot:
 
 > Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh`
 
-OpenClaw will install everything and walk you through setup automatically.
+The installer auto-detects the host:
 
-**macOS host?** Run the same `install.sh` command in Terminal on the macOS host. The installer detects Intel vs Apple Silicon, downloads the matching official Home Assistant OS VirtualBox image, starts the VM, and bootstraps the initial Home Assistant account and token for you.
+- On Raspberry Pi, it installs the SmartHub runtime directly.
+- On macOS, it detects Intel vs Apple Silicon, downloads the matching official Home Assistant OS VirtualBox image, starts the VM, and bootstraps the initial Home Assistant account and token for you.
+
+OpenClaw will install everything and continue setup automatically.
 
 ---
 
@@ -85,7 +88,9 @@ OpenClaw will install everything and walk you through setup automatically.
 
 Pick the platform path that matches where SmartHub will actually run.
 
-### 1. Choose Your Runtime
+### 1. Install OpenClaw on the Target Machine
+
+Install OpenClaw on the same machine that will host SmartHub.
 
 **Raspberry Pi**
 
@@ -93,17 +98,26 @@ Pick the platform path that matches where SmartHub will actually run.
 curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta
 ```
 
-Install OpenClaw on the Raspberry Pi, connect your messaging app, then ask the bot to run SmartHub.
-
 **macOS host**
 
-Run `install.sh` on the macOS host. It detects Intel vs Apple Silicon, boots the matching Home Assistant OS VM in VirtualBox, creates the initial Home Assistant admin account, and syncs the generated token into `.env`. Do not try to run Home Assistant directly on the macOS host.
+Install OpenClaw on the Mac that will host the Home Assistant OS VM. SmartHub does not run Home Assistant directly on macOS.
 
 ### 2. Set Up OpenClaw with a Messaging App
 
 Follow the [OpenClaw Getting Started guide](https://docs.openclaw.ai/start/getting-started) to connect a bot to your messaging app (Discord, Telegram, WhatsApp, Feishu, etc.) and point it at this repo.
 
-Once the bot comes online, say: **"Help me set up SmartHub"**
+Make sure the bot is connected to the same machine that will host SmartHub.
+
+### 3. Tell OpenClaw to Install SmartHub
+
+Once the bot comes online, say:
+
+> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh`
+
+The installer auto-detects the host:
+
+- On Raspberry Pi, it installs the SmartHub runtime directly.
+- On macOS, it boots the matching Home Assistant OS VM in VirtualBox, creates the initial Home Assistant admin account, and syncs the generated token into `.env`.
 
 ---
 
