@@ -90,13 +90,9 @@ Pick the platform path that matches where SmartHub will actually run.
 
 ### 1. Install OpenClaw on the Target Machine
 
-Install OpenClaw on the same machine that will host SmartHub.
+Install OpenClaw on the same machine that will host SmartHub. Go to [openclaw.ai](https://openclaw.ai/) to install it.
 
 **Raspberry Pi**
-
-```bash
-curl -fsSL https://openclaw.ai/install.sh | bash -s -- --beta
-```
 
 **macOS host**
 
