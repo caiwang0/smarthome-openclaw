@@ -1,0 +1,34 @@
+{
+  "name": "discovery-routing",
+  "docs": [
+    "tools/integrations/_discovery.md",
+    "tools/integrations/_guide.md"
+  ],
+  "tool_runs": [
+    {
+      "tool_name": "mcp__ha-mcp__ha_config_entries_get",
+      "tool_input": {},
+      "transcript": "what integrations can you see?"
+    },
+    {
+      "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
+      "tool_input": {
+        "handler": "hue"
+      },
+      "transcript": "please continue"
+    },
+    {
+      "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
+      "tool_input": {
+        "handler": "hue",
+        "flow_id": "abc123"
+      },
+      "transcript": "yes"
+    }
+  ],
+  "expect": {
+    "read_only_discovery": "allow",
+    "denied_mutation": "deny",
+    "confirmed_follow_up": "allow"
+  }
+}

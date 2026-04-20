@@ -50,7 +50,7 @@ Device commands, API patterns, and device-specific knowledge are organized in th
 
 **Before creating an automation**, read `tools/automations/_guide.md` for the full workflow. For JSON schema and all trigger/condition/action types, read `tools/automations/_reference.md`.
 
-**Before adding an integration**, read `tools/integrations/_guide.md` for the full setup process.
+**Before adding an integration**, start with `tools/integrations/_discovery.md`. After the user confirms a candidate, continue to `tools/integrations/_lifecycle.md`; use `tools/integrations/_guide.md` only while navigating the `CONNECTING` phase.
 
 **After completing any action**, follow the Skill Auto-Generation rules in `TOOLS.md` to keep skill files up to date.
 
@@ -62,7 +62,7 @@ When the user asks for an automation, read `tools/automations/_guide.md` and fol
 
 ## Adding Integrations
 
-When the user asks to add an integration (Xiaomi, Philips Hue, Broadlink, etc.), read `tools/integrations/_guide.md` for the full setup process. It covers HACS installation, config flows, OAuth handling, and error recovery.
+When the user asks to add an integration (Xiaomi, Philips Hue, Broadlink, etc.), read `tools/integrations/_discovery.md` first, then `tools/integrations/_lifecycle.md` after the user confirms a candidate. Use `tools/integrations/_guide.md` only for the config-flow, OAuth, prerequisite-install, and recovery work inside `CONNECTING`.
 
 ## Rules
 

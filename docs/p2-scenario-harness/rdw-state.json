@@ -1,0 +1,81 @@
+{
+  "workflow_id": "rdw-20260420-p2-scenario-harness",
+  "started": "2026-04-20T00:00:00+08:00",
+  "current_stage": "complete",
+  "artifacts": {
+    "issue_doc": "docs/p2-scenario-harness/issue-doc.md",
+    "plan_doc": "docs/p2-scenario-harness/plan.md",
+    "validation_report": "docs/p2-scenario-harness/validation-report.md"
+  },
+  "stages_completed": [
+    "document",
+    "plan",
+    "implement",
+    "validate",
+    "learn"
+  ],
+  "phases": {
+    "total": 4,
+    "completed": [
+      "phase-1-harness-core-and-fixtures",
+      "phase-2-cross-scenario-policy-assertions",
+      "phase-3-automation-step4-contract",
+      "phase-4-command-and-validation-artifact"
+    ],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "PASS",
+      "note": "Completeness review passed: the issue doc has a full Intent section, five discrete findings, concrete success criteria, and explicit dependencies."
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "PASS",
+      "note": "Cross-reference review passed: the plan maps all five findings to concrete tasks, includes per-phase verification commands, and introduces no scope creep beyond the issue doc."
+    },
+    {
+      "stage": "implement-phase-1",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Added `tests/test_p2_scenario_harness.py` plus the `tests/fixtures/p2_scenario_harness/` schema README and initial JSON fixtures. Verified locally with `python3 -m unittest tests.test_p2_scenario_harness -v` (3 tests OK)."
+    },
+    {
+      "stage": "implement-phase-2",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Extended the harness with a combined discovery/confirmation scenario that shells out to the real `scripts/approval-gate.py`, updated the `discovery-routing.json` fixture to cover read-only discovery, denied mutation, and confirmed follow-up, and verified locally with `python3 -m unittest tests.test_p2_scenario_harness -v` (4 tests OK) plus `python3 -m unittest tests.test_p2_scenario_harness tests.test_approval_gate -v` (10 tests OK)."
+    },
+    {
+      "stage": "implement-phase-3",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Added the `automation-step4` scenario to the harness, created its JSON fixture, narrowed `tests/test_automation_docs.py` to vendored-pack provenance checks, and verified locally with `python3 -m unittest tests.test_p2_scenario_harness -v` (5 tests OK) plus `python3 -m unittest tests.test_p2_scenario_harness tests.test_automation_docs -v` (6 tests OK)."
+    },
+    {
+      "stage": "implement-phase-4",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Added `docs/p2-scenario-harness/validation-report.md`, pinned the harness command/scenario names with a focused regression check in `tests/test_integrations_docs.py`, and verified locally with `python3 -m unittest tests.test_integrations_docs.IntegrationDocsTests.test_validation_report_records_the_harness_command -v`."
+    },
+    {
+      "stage": "validate",
+      "round": 1,
+      "result": "PASS",
+      "note": "Fresh validation passed with `python3 -m unittest tests.test_p2_scenario_harness -v` (5 tests OK) and `python3 -m unittest tests.test_p2_scenario_harness tests.test_approval_gate tests.test_automation_docs tests.test_integrations_docs -v` (16 tests OK)."
+    },
+    {
+      "stage": "learn",
+      "round": 1,
+      "result": "SKIPPED",
+      "note": "No discoveries, phase failures, or validation regressions were recorded, so memory capture was skipped."
+    }
+  ],
+  "tier": 2,
+  "discoveries": [],
+  "learnings_captured": []
+}

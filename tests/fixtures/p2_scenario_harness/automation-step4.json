@@ -1,0 +1,31 @@
+{
+  "name": "automation-step4",
+  "docs": [
+    "tools/automations/_guide.md",
+    "TOOLS.md",
+    "tools/ha-best-practices/README.md"
+  ],
+  "tool_runs": [
+    {
+      "tool_name": "automation_request",
+      "tool_input": {
+        "request": "turn on the porch light at sunset"
+      },
+      "transcript": "general automation request"
+    },
+    {
+      "tool_name": "automation_drafting",
+      "tool_input": {
+        "step": 4,
+        "request": "turn on the porch light at sunset"
+      },
+      "transcript": "draft the automation json at step 4"
+    }
+  ],
+  "expect": {
+    "general_request": "no_pack_load",
+    "drafting_boundary": "load_pack",
+    "advisory": true,
+    "authority": "CLAUDE.md"
+  }
+}

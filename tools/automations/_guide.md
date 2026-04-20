@@ -7,12 +7,14 @@ When a user asks for an automation (e.g., "turn off lights at midnight"), follow
 1. **Understand the intent** — Parse the user's request into: trigger (when), condition (if), action (what)
 2. **Check for missing details** — Use the **Required Details Checklist** below to verify you have everything needed. If any required detail is missing or ambiguous, ask the user BEFORE drafting. Do NOT guess or fill in defaults.
 3. **Look up entity IDs** — Read the relevant device skill files in `tools/` to get the correct entity IDs. Never guess.
-4. **Draft the automation JSON** — Use the schema and examples below
+4. **Draft the automation JSON** — Load `tools/ha-best-practices/` for advisory Home Assistant patterns, then use the schema and examples below
 5. **Show the user a summary** — Present in plain language: "At midnight every day → turn off living room light. Want me to create this?"
 6. **Wait for confirmation** — Do NOT create until the user says yes
 7. **Create via ha-mcp** — use `ha_config_set_automation` tool
 8. **Confirm success** — Tell the user the automation is active
 9. **Update skill files** — Add the automation to `tools/automations/` as a record
+
+When you reach Step 4, `tools/ha-best-practices/` is loaded only when drafting automation JSON. It is advisory guidance for helper choice, automation modes, safe refactoring, and domain-specific gotchas. `CLAUDE.md` remains authoritative for SmartHub-specific user interaction rules and confirmation boundaries.
 
 ---
 

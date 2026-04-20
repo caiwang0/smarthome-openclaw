@@ -212,10 +212,15 @@ home-assistant/
 │   ├── _errors.md               #   Error handling & recovery
 │   ├── _services.md             #   Domain quirks (HVAC modes, brightness 0-255, etc.)
 │   ├── integrations/
-│   │   └── _guide.md            #   Integration setup (HACS, config flows, OAuth)
+│   │   ├── _discovery.md        #   Read-only discovery (passive signals + ordered LAN fallback chain)
+│   │   ├── _lifecycle.md        #   Integration lifecycle harness (selection → connection → verification)
+│   │   └── _guide.md            #   Config-flow sub-skill (HACS, OAuth, recovery during CONNECTING)
 │   ├── automations/
 │   │   ├── _guide.md            #   Automation workflow & checklist
 │   │   └── _reference.md        #   JSON schema, trigger/action types, templates
+│   ├── ha-best-practices/
+│   │   ├── SKILL.md             #   Vendored Home Assistant automation/helper guidance
+│   │   └── references/          #   Supporting best-practices references loaded during drafting
 │   ├── xiaomi-home/
 │   │   ├── _integration.md      #   Xiaomi setup, cloud regions, quirks
 │   │   ├── tv.md                #   TV commands & quirks
@@ -242,9 +247,12 @@ CLAUDE.md (always loaded)
     │                                   then tools/_errors.md if a call fails
     │
     ├─ "Before creating automation" ─→ reads tools/automations/_guide.md
+    │                                   then tools/ha-best-practices/ during Step 4 draft creation
     │                                   then _reference.md for JSON schema
     │
-    └─ "Before adding integration" ──→ reads tools/integrations/_guide.md
+    └─ "Before adding integration" ──→ reads tools/integrations/_discovery.md
+                                        then tools/integrations/_lifecycle.md
+                                        then tools/integrations/_guide.md when in CONNECTING
 
 TOOLS.md (loaded on demand)
     └─ Quick Reference table maps device names → skill files

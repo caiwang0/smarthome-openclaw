@@ -9,7 +9,9 @@ This file is the entry point for all device and service knowledge. Detailed comm
 | [tools/_common.md](tools/_common.md) | ha-mcp tool patterns, network info |
 | [tools/_errors.md](tools/_errors.md) | Runtime error handling — ToolError patterns, entity states, recovery steps |
 | [tools/_services.md](tools/_services.md) | Per-domain service reference (light, climate, media_player, etc.) |
-| [tools/integrations/_guide.md](tools/integrations/_guide.md) | Integration setup — HACS, config flows, OAuth, error handling |
+| [tools/integrations/_discovery.md](tools/integrations/_discovery.md) | Read-only integration discovery — passive signals, ordered LAN fallback chain, candidate reporting |
+| [tools/integrations/_lifecycle.md](tools/integrations/_lifecycle.md) | Integration lifecycle harness — candidate confirmation, connecting, verification, skill generation |
+| [tools/integrations/_guide.md](tools/integrations/_guide.md) | Integration config-flow sub-skill — HACS, config flows, OAuth, error handling during `CONNECTING` |
 | [tools/xiaomi-home/_integration.md](tools/xiaomi-home/_integration.md) | Xiaomi Home setup, OAuth, cloud regions, shared quirks |
 | [tools/xiaomi-home/tv.md](tools/xiaomi-home/tv.md) | Xiaomi TV commands and quirks |
 | [tools/xiaomi-home/ma8-ac.md](tools/xiaomi-home/ma8-ac.md) | MA8 Air Conditioner commands and quirks |
@@ -17,18 +19,20 @@ This file is the entry point for all device and service knowledge. Detailed comm
 | [tools/printer/office-printer.md](tools/printer/office-printer.md) | Office printer setup and print commands |
 | [tools/automations/_guide.md](tools/automations/_guide.md) | **Automation creation** — workflow, required details checklist, per-domain triggers |
 | [tools/automations/_reference.md](tools/automations/_reference.md) | Automation JSON schema, all trigger/condition/action types, templates |
+| [tools/ha-best-practices/README.md](tools/ha-best-practices/README.md) | Vendored Home Assistant best-practices pack metadata and routing notes |
 
 **Before controlling a device**, read its skill file for the correct entity ID, commands, and known quirks.
 
 **For ha-mcp tool patterns** (listing devices, calling services, managing areas), read `tools/_common.md`.
 
 **For creating automations**, read `tools/automations/_guide.md` — it has the full workflow and checklist.
+When that workflow reaches Step 4, also load `tools/ha-best-practices/`. The pack is advisory and draft-only; `CLAUDE.md` remains authoritative for SmartHub-specific interaction rules.
 
 ---
 
 ## Adding New Integrations
 
-For the full integration setup process (HACS, config flows, OAuth, form handling, error recovery), read `tools/integrations/_guide.md`.
+For new integrations, start at `tools/integrations/_discovery.md`, continue to `tools/integrations/_lifecycle.md` once the user confirms a candidate, and use `tools/integrations/_guide.md` only while navigating the `CONNECTING` phase.
 
 ---
 

@@ -1,0 +1,29 @@
+{
+  "name": "confirmation-boundary",
+  "docs": [
+    "tools/integrations/_guide.md"
+  ],
+  "tool_runs": [
+    {
+      "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
+      "tool_input": {
+        "handler": "hue"
+      },
+      "transcript": "please continue"
+    },
+    {
+      "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
+      "tool_input": {
+        "handler": "hue",
+        "flow_id": "abc123"
+      },
+      "transcript": "yes"
+    }
+  ],
+  "expect": {
+    "decision": "deny",
+    "reason_contains": "explicit confirmation",
+    "confirmed": "yes",
+    "denied": "please continue"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "workflow_id": "rdw-20260420-p2-structural-cleanup",
+  "started": "2026-04-20T00:00:00+08:00",
+  "current_stage": "complete",
+  "artifacts": {
+    "issue_doc": "docs/p2-structural-cleanup/issue-doc.md",
+    "plan_doc": "docs/p2-structural-cleanup/plan.md",
+    "validation_report": "docs/p2-structural-cleanup/validation-report.md"
+  },
+  "stages_completed": [
+    "document",
+    "plan",
+    "implement",
+    "validate",
+    "learn"
+  ],
+  "phases": {
+    "total": 2,
+    "completed": [
+      "phase-1-integration-lifecycle-routing",
+      "phase-2-automation-best-practices-pack"
+    ],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "PASS",
+      "note": "Inline completeness review passed, then the issue doc was narrowed per user direction to items 10-12 and 13a only. The final issue doc contains a full Intent section, four discrete findings, concrete validation criteria, and explicit dependencies."
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "PASS",
+      "note": "Plan written inline with three tasks: integration lifecycle/routing, vendored automation best-practices pack, and focused validation. Coverage matches all four findings in the narrowed issue doc."
+    },
+    {
+      "stage": "implement-phase-1",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Added `tools/integrations/_lifecycle.md`, rerouted `CLAUDE.md` / `TOOLS.md` / `README.md` through discovery → lifecycle → guide, updated `_discovery.md` to the ordered `arp-scan --localnet` → `nmap -sn` → `ip neigh show` fallback chain, and passed `python3 -m unittest tests.test_integrations_docs -v`."
+    },
+    {
+      "stage": "implement-phase-2",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Vendored the upstream `home-assistant-best-practices` snapshot under `tools/ha-best-practices/` at pinned commit `e503410aa2c412dd27579562f194ee6614314dd8`, added `scripts/update-ha-best-practices.sh`, wired the pack into `tools/automations/_guide.md` and `TOOLS.md`, and passed `python3 -m unittest tests.test_automation_docs -v`."
+    },
+    {
+      "stage": "validate",
+      "round": 1,
+      "result": "PASS",
+      "note": "Validation report written to `docs/p2-structural-cleanup/validation-report.md`. Routing/fallback/provenance grep checks passed, `./scripts/update-ha-best-practices.sh` synced successfully, and `python3 -m unittest tests.test_integrations_docs tests.test_automation_docs tests.test_setup_docs tests.test_recovery_docs -v` passed (6 tests OK)."
+    },
+    {
+      "stage": "learn",
+      "round": 1,
+      "result": "SKIPPED",
+      "note": "No implementation discoveries, review failures, or validation regressions were recorded, so memory capture was skipped."
+    }
+  ],
+  "tier": 2,
+  "discoveries": [],
+  "learnings_captured": []
+}

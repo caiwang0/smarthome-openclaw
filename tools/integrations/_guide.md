@@ -1,10 +1,18 @@
-# Integrations — Setup Guide
+# Integrations — Config-Flow Sub-Skill
+
+This file is a sub-skill for the `CONNECTING` phase in `tools/integrations/_lifecycle.md`.
+
+Primary route:
+
+`tools/integrations/_discovery.md` → `tools/integrations/_lifecycle.md` → `tools/integrations/_guide.md`
 
 Every integration has its own setup flow with different steps and options. **Do NOT hardcode or assume what the options are.**
 
 ### Discovery First
 
 Use `tools/integrations/_discovery.md` as the read-only entrypoint before any mutation step. It is passive-first: check existing HA signals first, then mDNS via `avahi-browse -atr`, then SSDP, and only fall back to `ip neigh`, `arp-scan`, and `nmap` when passive evidence is insufficient.
+
+Use `tools/integrations/_lifecycle.md` to manage the state transition from confirmed candidate to connected-and-verified integration. This file is only the config-flow helper once the lifecycle is already in `CONNECTING`.
 
 Present the results as candidates, not as implied action requests. Do not start a new config flow or attempt an add-device action until the user explicitly confirms the candidate they want to connect.
 
@@ -257,7 +265,7 @@ Use `ha_search_entities` to discover new devices from the integration.
 Show the user what new devices were found. Count the setup as complete only after one new non-system entity was added relative to the baseline and you verified one read or control action against it.
 
 ### Error Handling
-Before telling the user an integration flow is stuck, follow the recovery ladder in `tools/_errors.md`.
+Before telling the user an integration flow is stuck, follow the recovery ladder in `tools/_errors.md`, then return to the current lifecycle phase in `tools/integrations/_lifecycle.md`.
 
 - **`already_in_progress`**: Inspect the pending flow, retry once, and only ask the user before deleting a stale flow or making a new config-flow choice.
 - **`no_devices`**: Follow the recovery ladder in `tools/_errors.md`, then ask the user to verify their region and that devices are registered in their app (Mi Home, LG ThinQ, etc.) if the local checks are clean.
