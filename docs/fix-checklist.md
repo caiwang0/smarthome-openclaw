@@ -47,12 +47,13 @@ Status: completed in repo on 2026-04-15 for items 5-9. Item 9a remains paused an
 
 ## P2 — Structural cleanup around the new flow
 
+Status: completed in repo on 2026-04-20 for items 10-12 and 13a. Item 13 was removed from scope on 2026-04-20.
+
 | # | Item | Description | Touches |
 |---|------|-------------|---------|
 | 10 | Add `tools/integrations/_lifecycle.md` | State machine for the full integration lifecycle: `DISCOVERED → IDENTIFIED → INTEGRATION_SELECTED → CONNECTING → CONNECTED → VERIFIED → SKILL_GENERATED`. Defines failure handling at each phase. | `tools/integrations/` (new) |
 | 11 | Demote `tools/integrations/_guide.md` to sub-skill | Keep the config-flow walker but make it callable from `_lifecycle.md`, not the primary entry point. New path: `_discovery.md` → `_lifecycle.md` → `_guide.md`. | `tools/integrations/_guide.md`, `TOOLS.md` |
 | 12 | Add `arp-scan` permission fallback chain | `arp-scan --localnet` → `nmap -sn` → `ip neigh show`. Pre-decide in the skill rather than flail on a capability error at runtime. | `tools/integrations/_discovery.md` |
-| 13 | Correct the "under 3 minutes" timing claim | Honest version: "30s on warm cache, 2–3 min on first image pull." Docker pull dominates cold start. | `README.md`, `docs/onepager.md`, marketing copy |
 | 13a | Bundle `homeassistant-ai/skills` best-practices pack | The `home-assistant-best-practices` skill from [homeassistant-ai/skills](https://github.com/homeassistant-ai/skills) fills a real gap in our automation creation: anti-pattern table (`condition: template` → `condition: numeric_state`, `wait_template` → `wait_for_trigger`, `mode: single` → `mode: restart` for motion lights), helper decision matrix (`min_max` / `threshold` / `derivative` / `utility_meter` instead of template sensors), safe entity-rename refactoring (Config-Entry blind spots), version-current gotchas (`color_temp_kelvin` not `color_temp` in 2026.3+). Portability means **vendor it into the repo** (commit a snapshot under `tools/ha-best-practices/`), not `npx skills add` at install time — installs must work offline and survive the skills repo moving. Wire it in from `tools/automations/_guide.md` Step 4 ("Draft the automation JSON") so it loads *only* when drafting an automation, not always-on — our beta users already flagged latency, and the pack is ~10 reference files. `CLAUDE.md` rules (URL-as-markdown, confirm-before-destructive, match-user-language) stay authoritative; treat the pack as advisory. Update script to re-vendor: `scripts/update-ha-best-practices.sh` that pulls a pinned git SHA. | `tools/ha-best-practices/` (new), `tools/automations/_guide.md`, `TOOLS.md`, `scripts/` (new) |
 
 ## P3 — Repo hygiene that the rest of the work exposes
@@ -72,7 +73,8 @@ Status: completed in repo on 2026-04-20 for items 14-17.
 
 - **Completed — P0 items 1–4.** Tightly coupled bundle is already landed in the repo.
 - **Completed — P1 items 5–9.** The first-win setup path, passive-first discovery flow, fingerprint corpus, empty-instance guardrail, and approval-boundary audit are landed in the repo.
-- **Later PR — P1 item 9a + P2.** Explicit HACS choice branch + structural cleanup, now that the new flow exists.
+- **Later PR — P1 item 9a.** Explicit HACS choice branch remains.
+- **Completed — P2 items 10–12 and 13a.** Lifecycle routing, ordered discovery fallback, and the vendored Home Assistant best-practices pack are landed. Item 13 was removed from scope.
 - **Completed — P3 items 14–17.** Legacy backend residue is gone, reusable templates are clarified, and historical docs are archived under `docs/archive/`.
 
 ## What this doesn't change
