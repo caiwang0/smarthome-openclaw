@@ -54,7 +54,7 @@ Say "I'm leaving for work" and OpenClaw turns off lights, sets the AC to eco, an
 
 ## macOS Support
 
-SmartHub now supports two install paths: Raspberry Pi for the full runtime, and macOS for the official Home Assistant VM path.
+SmartHub now supports two install paths: Linux hosts for the full runtime, and macOS for the official Home Assistant VM path.
 
 - `install.sh` on the macOS host checks or installs VirtualBox, detects whether the Mac is Intel or Apple Silicon, and downloads the matching Home Assistant OS disk image.
 - Intel Macs use the official `haos_ova` VirtualBox image.
@@ -65,7 +65,7 @@ SmartHub now supports two install paths: Raspberry Pi for the full runtime, and 
 **Native macOS Docker Desktop is not supported** for the SmartHub runtime.
 
 `install.sh` on macOS now waits for Home Assistant to boot, seeds the first admin account, and syncs the generated long-lived access token into `.env` before handing you the login URL.
-If you need the full SmartHub runtime, run this repo on a Raspberry Pi and use macOS only as the Home Assistant VM host.
+If you need the full SmartHub runtime, run this repo on a Linux host. A Raspberry Pi is the recommended always-on host, but it is no longer the only supported Linux runtime.
 
 ---
 
@@ -79,7 +79,7 @@ curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/in
 
 The installer auto-detects the host:
 
-- On Raspberry Pi, it syncs the SmartHub repo, installs the runtime, starts Home Assistant, bootstraps the initial Home Assistant account if needed, and syncs the generated token into `.env`.
+- On Linux, it syncs the SmartHub repo, installs the runtime, starts Home Assistant, bootstraps the initial Home Assistant account if needed, and syncs the generated token into `.env`.
 - On macOS, it detects Intel vs Apple Silicon, downloads the matching official Home Assistant OS VirtualBox image, starts the VM, bootstraps the initial Home Assistant account if needed, and syncs the generated token into `.env`.
 
 OpenClaw will install everything and continue setup automatically. On a fresh install it prints the generated Home Assistant username/password once, then hands you the login URL.
@@ -94,7 +94,7 @@ Pick the platform path that matches where SmartHub will actually run.
 
 Install OpenClaw on the same machine that will host SmartHub. Go to [openclaw.ai](https://openclaw.ai/) to install it.
 
-**Raspberry Pi**
+**Linux host (Raspberry Pi recommended)**
 
 **macOS host**
 
@@ -116,7 +116,7 @@ curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/in
 
 The installer auto-detects the host:
 
-- On Raspberry Pi, it installs the SmartHub runtime, starts Home Assistant, bootstraps the initial Home Assistant admin account if needed, and syncs the generated token into `.env`.
+- On Linux, it installs the SmartHub runtime, starts Home Assistant, bootstraps the initial Home Assistant admin account if needed, and syncs the generated token into `.env`.
 - On macOS, it boots the matching Home Assistant OS VM in VirtualBox, bootstraps the initial Home Assistant admin account if needed, and syncs the generated token into `.env`.
 
 ---
@@ -127,7 +127,7 @@ The installer auto-detects the host:
 |------|-------------|
 | Repo sync | Clones SmartHub if missing, or updates the existing checkout before setup |
 | Install Docker | Checks if Docker is installed and gives you the command if not |
-| Start Home Assistant | Launches HA on Raspberry Pi or boots the HA OS VM on macOS |
+| Start Home Assistant | Launches HA on the Linux host or boots the HA OS VM on macOS |
 | First HA login | On a fresh install, bootstraps the initial Home Assistant admin account and prints the generated username/password once |
 | Access token | Generates or recovers the Home Assistant token automatically and syncs it into `.env` |
 | Verify runtime | Verifies `ha-mcp`, Home Assistant reachability, and the repo config before handoff |
@@ -208,7 +208,7 @@ home-assistant/
 ├── CLAUDE.md                    # Agent behavior rules (auto-loaded)
 ├── TOOLS.md                     # Skill router — maps devices to files
 ├── docker-compose.yml           # Runs Home Assistant
-├── install.sh                   # Raspberry Pi installer + macOS host bootstrap dispatcher
+├── install.sh                   # Linux installer + macOS host bootstrap dispatcher
 ├── .env.example                 # Template — copy to .env, fill in HA_TOKEN
 ├── .claude/
 │   └── settings.json            # ha-mcp MCP server + PreToolUse approval hook
@@ -217,7 +217,7 @@ home-assistant/
 │   ├── approval-gate.py         # Blocks destructive ha-mcp calls unless the user
 │   │                            # explicitly confirmed in their latest message
 │   ├── macos-vm-bootstrap.sh    # VirtualBox + Home Assistant OS VM bootstrap on macOS hosts
-│   └── linux-guest-install.sh   # SmartHub runtime install on Raspberry Pi hosts
+│   └── linux-guest-install.sh   # SmartHub runtime install on Linux hosts
 │
 ├── tools/                       # Skill files — the agent's knowledge base
 │   ├── setup.md                 #   First-run setup flow (Docker → HA → token → .env)
@@ -302,9 +302,9 @@ Skill files are loaded **on demand**, not all at once. The agent only reads what
 
 **OAuth redirect fails (Xiaomi, Google, etc.):**
 
-The OAuth login redirects to `homeassistant.local:8123` (or whichever port HA is running on — check `HA_URL` in `.env`). In the Raspberry Pi runtime path, `homeassistant.local` belongs to the Raspberry Pi, not the browser machine.
+The OAuth login redirects to `homeassistant.local:8123` (or whichever port HA is running on — check `HA_URL` in `.env`). In the Linux runtime path, `homeassistant.local` belongs to the Linux host, not the browser machine.
 
-First, on the Raspberry Pi, get the host IP:
+First, on the Linux host, get the host IP:
 
 ```bash
 HA_HOST_IP=$(hostname -I | awk '{print $1}')

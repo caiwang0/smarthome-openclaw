@@ -98,63 +98,6 @@ smarthub_uname_s() {
   uname -s
 }
 
-smarthub_uname_m() {
-  if [ -n "${SMARTHUB_TEST_ARCH:-}" ]; then
-    printf '%s\n' "$SMARTHUB_TEST_ARCH"
-    return
-  fi
-
-  uname -m
-}
-
-smarthub_linux_device_model() {
-  if [ -n "${SMARTHUB_TEST_RPI_MODEL:-}" ]; then
-    printf '%s\n' "$SMARTHUB_TEST_RPI_MODEL"
-    return
-  fi
-
-  if [ -r /proc/device-tree/model ]; then
-    tr -d '\000' < /proc/device-tree/model
-    return
-  fi
-
-  if [ -r /sys/firmware/devicetree/base/model ]; then
-    tr -d '\000' < /sys/firmware/devicetree/base/model
-    return
-  fi
-
-  if [ -r /proc/cpuinfo ]; then
-    awk -F': ' '/^Model/{print $2; exit}' /proc/cpuinfo
-    return
-  fi
-
-  printf '\n'
-}
-
-smarthub_is_raspberry_pi_host() {
-  local model
-  model="$(smarthub_linux_device_model | tr '[:upper:]' '[:lower:]')"
-  case "$model" in
-    *raspberry*pi*)
-      return 0
-      ;;
-  esac
-
-  if [ -r /etc/os-release ] && grep -qi '^id=raspbian$' /etc/os-release; then
-    return 0
-  fi
-
-  case "$(smarthub_uname_m)" in
-    armv6l|armv7l|aarch64|arm64)
-      if [ -r /proc/cpuinfo ] && grep -qi 'raspberry pi\|bcm27' /proc/cpuinfo; then
-        return 0
-      fi
-      ;;
-  esac
-
-  return 1
-}
-
 smarthub_detect_platform() {
   case "$(smarthub_uname_s)" in
     Linux)
@@ -188,7 +131,7 @@ smarthub_bootstrap_repo_if_needed "$@"
 LINUX_GUEST_HELPER="$SCRIPT_DIR/scripts/linux-guest-install.sh"
 if [ ! -f "$LINUX_GUEST_HELPER" ]; then
   fail_install \
-    "Raspberry Pi installer helper missing at $LINUX_GUEST_HELPER." \
+    "Linux installer helper missing at $LINUX_GUEST_HELPER." \
     "Re-clone the repo or restore scripts/linux-guest-install.sh before rerunning SmartHub."
 fi
 
@@ -213,11 +156,6 @@ main() {
 
   case "$(smarthub_detect_platform)" in
     linux)
-      if ! smarthub_is_raspberry_pi_host; then
-        fail_install \
-          "Unsupported Linux host for SmartHub installer." \
-          "SmartHub currently supports Raspberry Pi hosts and macOS hosts only."
-      fi
       run_linux_guest_install
       ;;
     macos)
@@ -226,7 +164,7 @@ main() {
     *)
       fail_install \
         "Unsupported host OS for SmartHub installer: $(smarthub_uname_s)." \
-        "Supported SmartHub host paths are Raspberry Pi and macOS host bootstrap into a Home Assistant OS VM."
+        "Supported SmartHub host paths are Linux and macOS host bootstrap into a Home Assistant OS VM."
       ;;
   esac
 }

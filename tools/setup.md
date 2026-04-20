@@ -4,9 +4,9 @@ You are walking a new user through setting up SmartHub from scratch. They alread
 
 This workflow has two entrypoints:
 - the user explicitly asks for help setting up Home Assistant / SmartHub
-- Raspberry Pi `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
+- Linux `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
 
-When this doc is entered from Raspberry Pi `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+When this doc is entered from Linux `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
 
 If `install.sh` just finished on a macOS host, stop here: the macOS installer installs VirtualBox if needed, detects Intel vs Apple Silicon, boots the official Home Assistant OS VM, creates the initial Home Assistant admin account, and syncs the generated token into `.env`. The browser UI is only for signing in afterward, not for first-run onboarding.
 
@@ -17,7 +17,7 @@ Before telling the user setup is stuck, follow the recovery ladder in `tools/_er
 ## Host / Guest Boundary
 
 - **macOS host**: `install.sh` uses the macOS host only to install or verify VirtualBox, detect Intel vs Apple Silicon, boot the official Home Assistant OS VM, and drive the first-run Home Assistant bootstrap over the network APIs. Do not run Docker, `hostname -I`, `systemctl --user`, or Avahi commands on the macOS host.
-- **Raspberry Pi runtime**: every shell command in this setup guide runs on the Raspberry Pi that actually hosts SmartHub unless a step explicitly says "browser machine".
+- **Linux runtime**: every shell command in this setup guide runs on the Linux host that actually hosts SmartHub unless a step explicitly says "browser machine".
 - **Browser machine**: the user opens Home Assistant and OAuth links here. It may be the same Mac, another laptop, or a phone on the same LAN.
 
 ---
@@ -125,14 +125,14 @@ done
 
 ## Step 4b: Set Up mDNS for homeassistant.local
 
-> **Only run this after HA is confirmed running (Step 4 polling succeeded).** This is a Raspberry Pi step. It broadcasts the Raspberry Pi IP so other devices on the LAN can reach HA — but only once HA is actually up.
+> **Only run this after HA is confirmed running (Step 4 polling succeeded).** This is a Linux host step. It broadcasts the Linux host IP so other devices on the LAN can reach HA — but only once HA is actually up.
 
 ```bash
 # Install avahi-utils if not already installed
 which avahi-publish >/dev/null 2>&1 || sudo apt-get install -y avahi-utils
 ```
 
-Create a systemd user service on the Raspberry Pi to broadcast `homeassistant.local`:
+Create a systemd user service on the Linux host to broadcast `homeassistant.local`:
 
 ```bash
 HA_HOST_IP=$(hostname -I | awk '{print $1}')
@@ -164,7 +164,7 @@ Verify it's working:
 avahi-resolve -n homeassistant.local
 ```
 
-Should show the Raspberry Pi IP.
+Should show the Linux host IP.
 
 ```bash
 # Get the HA port for user-facing messages
@@ -181,7 +181,7 @@ Any browser machine on the same network can now reach Home Assistant at `http://
 
 > **If `.env` already has a real `HA_TOKEN`, onboarding was pre-seeded by `install.sh`. Skip Steps 5, 6, and 7 and continue with Step 8.**
 
-First, get the Raspberry Pi IP and HA port:
+First, get the Linux host IP and HA port:
 
 ```bash
 HA_HOST_IP=$(hostname -I | awk '{print $1}')

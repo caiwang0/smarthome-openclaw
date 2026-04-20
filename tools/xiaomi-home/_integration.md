@@ -35,7 +35,7 @@ China-purchased devices are almost always on `cn`. Wrong region = 0 devices foun
 ## OAuth Notes
 
 - The `oauth_redirect_url` MUST be `http://homeassistant.local:8123` — the integration enforces this.
-- Users need `homeassistant.local` in their hosts file pointing to their Pi's IP address, or mDNS must be running. Run `hostname -I | awk '{print $1}'` to find the IP.
+- Users need `homeassistant.local` in their hosts file pointing to the Linux host's IP address, or mDNS must be running. Run `hostname -I | awk '{print $1}'` to find the IP.
 - Extract the OAuth URL from the `description_placeholders` field (may be in an HTML `<a href="...">` tag).
 - Send the OAuth URL as a markdown hyperlink: `[Authorize Xiaomi](url)` — see CLAUDE.md for the mandatory URL formatting rule.
 - You cannot complete the browser login yourself — the user must open the link and authorize.
@@ -43,7 +43,7 @@ China-purchased devices are almost always on `cn`. Wrong region = 0 devices foun
 ## Shared Quirks
 
 - Entity IDs are very long (e.g., `media_player.xiaomi_cn_mitv_3b1ed2f92de5175e4cdf6f66d685ec5c_...`). Always look up the actual entity ID via `ha_search_entities` rather than guessing.
-- The Bluetooth integration may enter `setup_retry` state — the Pi's Bluetooth hardware may need a power cycle.
+- The Bluetooth integration may enter `setup_retry` state — the Linux host's Bluetooth hardware may need a power cycle.
 - After setup, devices may take 30-60 seconds to appear in the device registry.
 
 ## Devices
