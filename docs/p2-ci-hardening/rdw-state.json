@@ -1,0 +1,115 @@
+{
+  "workflow_id": "rdw-20260420-p2-ci-hardening",
+  "started": "2026-04-20T00:00:00+08:00",
+  "current_stage": "complete",
+  "artifacts": {
+    "issue_doc": "docs/p2-ci-hardening/issue.md",
+    "plan_doc": "docs/p2-ci-hardening/plan.md",
+    "validation_report": "docs/p2-ci-hardening/validation-report.md"
+  },
+  "stages_completed": [
+    "document",
+    "plan",
+    "implement",
+    "validate"
+  ],
+  "phases": {
+    "total": 3,
+    "completed": [
+      "Task 1",
+      "Task 2",
+      "Task 3"
+    ],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "PASS",
+      "notes": [
+        "Intent section includes goal, priorities, decision boundaries, and stop rules.",
+        "Three scoped findings cover policy extraction, real scenario execution, and validation-doc drift."
+      ]
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "PASS",
+      "notes": [
+        "Plan maps P1 to Task 1 and P2/P3 to Task 2.",
+        "TDD and required verification commands are called out explicitly."
+      ]
+    },
+    {
+      "stage": "implement",
+      "round": 1,
+      "result": "PASS",
+      "notes": [
+        "Extracted approval logic to scripts/approval_gate_policy.py and narrowed wrapper tests to wrapper I/O behavior.",
+        "Harness now executes confirmation-boundary with fixture-driven expectations and the scenario validation doc matches real coverage."
+      ]
+    },
+    {
+      "stage": "validate",
+      "round": 1,
+      "result": "PASS",
+      "notes": [
+        "python3 -m unittest tests.test_approval_gate_policy tests.test_approval_gate -v -> 11 tests, 0 failures, 0 errors.",
+        "python3 -m unittest tests.test_p2_scenario_harness -v -> 6 tests, 0 failures, 0 errors.",
+        "python3 -m unittest tests.test_p2_scenario_harness tests.test_approval_gate tests.test_automation_docs tests.test_integrations_docs -v -> 16 tests, 0 failures, 0 errors."
+      ]
+    },
+    {
+      "stage": "implement",
+      "round": 2,
+      "result": "ISSUES",
+      "notes": [
+        "Code review found that confirmation-boundary still used the flow_id follow-up exemption as its positive path.",
+        "Code review also found representative non-config-flow gated coverage had regressed from the wrapper and policy test suites."
+      ]
+    },
+    {
+      "stage": "implement",
+      "round": 3,
+      "result": "PASS",
+      "notes": [
+        "Reworked confirmation-boundary into a true fresh-start confirmation scenario and kept follow-up exemption coverage in discovery-routing.",
+        "Restored representative non-config-flow gated coverage in both policy and wrapper approval-gate tests."
+      ]
+    },
+    {
+      "stage": "validate",
+      "round": 2,
+      "result": "PASS",
+      "notes": [
+        "python3 -m unittest tests.test_p2_scenario_harness -v -> 6 tests, 0 failures, 0 errors.",
+        "python3 -m unittest tests.test_approval_gate_policy tests.test_approval_gate -v -> 13 tests, 0 failures, 0 errors.",
+        "python3 -m unittest tests.test_p2_scenario_harness tests.test_approval_gate tests.test_automation_docs tests.test_integrations_docs -v -> 17 tests, 0 failures, 0 errors."
+      ]
+    },
+    {
+      "stage": "implement",
+      "round": 4,
+      "result": "PASS",
+      "notes": [
+        "A bounded follow-up code review confirmed P4 and P5 were fixed in the exercised paths.",
+        "The only remaining note was a stale issue-doc summary line, which was corrected inline."
+      ]
+    }
+  ],
+  "tier": {
+    "level": 1,
+    "label": "Light",
+    "rationale": "Three scoped local-only CI hardening findings with a requested audit trail."
+  },
+  "discoveries": [
+    "P4: confirmation-boundary currently proves the follow-up exemption rather than an explicitly confirmed fresh start.",
+    "P5: representative non-config-flow gated coverage regressed from the approval-gate test suites."
+  ],
+  "learnings_captured": [
+    "A confirmation-boundary scenario must not include flow_id when it claims to prove affirmative confirmation; discovery-routing already covers the follow-up exemption.",
+    "When extracting policy into a shared module, keep at least one representative non-config-flow gated mutation in both direct policy tests and wrapper subprocess tests."
+  ]
+}
