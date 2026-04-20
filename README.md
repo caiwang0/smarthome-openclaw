@@ -71,16 +71,23 @@ If you need the full SmartHub runtime, run this repo on a Raspberry Pi and use m
 
 ## Quick Install
 
-If OpenClaw is already running on the machine that will host SmartHub, tell your bot:
+If OpenClaw is already running on the machine that will host SmartHub, tell your bot to clone or update the repo and run the installer from the repo root:
 
-> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh`
+```bash
+if [ -d "$HOME/smarthome-openclaw/.git" ]; then
+  cd "$HOME/smarthome-openclaw" && git pull --ff-only
+else
+  git clone https://github.com/caiwang0/smarthome-openclaw.git "$HOME/smarthome-openclaw" && cd "$HOME/smarthome-openclaw"
+fi
+bash install.sh
+```
 
 The installer auto-detects the host:
 
-- On Raspberry Pi, it installs the SmartHub runtime directly.
-- On macOS, it detects Intel vs Apple Silicon, downloads the matching official Home Assistant OS VirtualBox image, starts the VM, and bootstraps the initial Home Assistant account and token for you.
+- On Raspberry Pi, it syncs the SmartHub repo, installs the runtime, starts Home Assistant, bootstraps the initial Home Assistant account if needed, and syncs the generated token into `.env`.
+- On macOS, it detects Intel vs Apple Silicon, downloads the matching official Home Assistant OS VirtualBox image, starts the VM, bootstraps the initial Home Assistant account if needed, and syncs the generated token into `.env`.
 
-OpenClaw will install everything and continue setup automatically.
+OpenClaw will install everything and continue setup automatically. On a fresh install it prints the generated Home Assistant username/password once, then hands you the login URL.
 
 ---
 
@@ -106,14 +113,21 @@ Make sure the bot is connected to the same machine that will host SmartHub.
 
 ### 3. Tell OpenClaw to Install SmartHub
 
-Once the bot comes online, say:
+Once the bot comes online, tell it to clone or update the repo and run the installer from the repo root:
 
-> Run this: `curl -fsSL https://raw.githubusercontent.com/caiwang0/smarthome-openclaw/main/install.sh -o /tmp/smarthub-install.sh && bash /tmp/smarthub-install.sh`
+```bash
+if [ -d "$HOME/smarthome-openclaw/.git" ]; then
+  cd "$HOME/smarthome-openclaw" && git pull --ff-only
+else
+  git clone https://github.com/caiwang0/smarthome-openclaw.git "$HOME/smarthome-openclaw" && cd "$HOME/smarthome-openclaw"
+fi
+bash install.sh
+```
 
 The installer auto-detects the host:
 
-- On Raspberry Pi, it installs the SmartHub runtime directly.
-- On macOS, it boots the matching Home Assistant OS VM in VirtualBox, creates the initial Home Assistant admin account, and syncs the generated token into `.env`.
+- On Raspberry Pi, it installs the SmartHub runtime, starts Home Assistant, bootstraps the initial Home Assistant admin account if needed, and syncs the generated token into `.env`.
+- On macOS, it boots the matching Home Assistant OS VM in VirtualBox, bootstraps the initial Home Assistant admin account if needed, and syncs the generated token into `.env`.
 
 ---
 
@@ -121,11 +135,12 @@ The installer auto-detects the host:
 
 | Step | What happens |
 |------|-------------|
-| Install Docker | Checks if Docker is installed, gives you the command if not |
-| Start Home Assistant | Runs `docker compose up -d` to launch HA |
-| HA onboarding | Tells you to open the browser, create your admin user |
-| Access token | Guides you to create a long-lived token and paste it in chat |
-| Configure .env | Writes the token and verifies the connection |
+| Repo sync | Clones SmartHub if missing, or updates the existing checkout before setup |
+| Install Docker | Checks if Docker is installed and gives you the command if not |
+| Start Home Assistant | Launches HA on Raspberry Pi or boots the HA OS VM on macOS |
+| First HA login | On a fresh install, bootstraps the initial Home Assistant admin account and prints the generated username/password once |
+| Access token | Generates or recovers the Home Assistant token automatically and syncs it into `.env` |
+| Verify runtime | Verifies `ha-mcp`, Home Assistant reachability, and the repo config before handoff |
 | Add integrations | Walks you through adding Xiaomi, Philips Hue, or any other brand |
 | Discover devices | Shows what devices were found after each integration |
 | Remote access *(optional)* | Sets up a Cloudflare Tunnel so you can reach HA from anywhere |
@@ -134,20 +149,18 @@ The installer auto-detects the host:
 
 ```
 You:      Help me set up SmartHub
-OpenClaw: Let's get your smart home running. Do you have Docker installed?
-          Run: docker --version
+OpenClaw: I'll sync the SmartHub repo locally and run the installer from the repo root.
+          It will start Home Assistant, bootstrap the first login if needed,
+          and sync the HA token into .env automatically.
 
-You:      Docker version 27.5.1
-OpenClaw: Docker is ready. Starting Home Assistant...
-          Done. Open http://homeassistant.local:8123 in your browser.
-          Create your admin account and let me know when you're done.
+OpenClaw: SmartHub + ha-mcp installed.
+          Home Assistant admin username: alice
+          Home Assistant admin password: <generated-password>
+          Save this, it's the only time you'll see it.
+          Open http://homeassistant.local:8123 in your browser and sign in.
 
-You:      Done, created user "alice"
-OpenClaw: Now go to your profile → Security → Long-Lived Access Tokens
-          → Create Token. Name it "openclaw" and paste it here.
-
-You:      eyJhbGciOiJIUzI1NiIs...
-OpenClaw: Saved. Connection verified — Home Assistant 2026.3.4, 0 devices.
+You:      I'm signed in.
+OpenClaw: Connection verified — Home Assistant 2026.3.4, 0 devices.
           Want to add your first device integration?
 ```
 
