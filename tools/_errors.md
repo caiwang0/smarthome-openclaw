@@ -1,5 +1,14 @@
 # Error Handling — Runtime Troubleshooting
 
+## macOS host bootstrap issues
+
+| Symptom | Likely Cause | Action |
+|---|---|---|
+| VirtualBox install failed | macOS blocked the installer or system extension | Re-run `install.sh` on the macOS host, approve the VirtualBox prompts, then retry the Home Assistant OS VM bootstrap. |
+| Home Assistant OS VM never appears on the LAN | VirtualBox boot failed or the wrong Intel/Apple Silicon disk image was attached | Open VirtualBox on the macOS host, confirm the VM architecture matches the Mac, inspect the VM console, and rerun `install.sh`. |
+| Automatic account/token bootstrap failed | Home Assistant finished onboarding before the installer could seed the first user, or the local API bootstrap could not reach the VM | Delete the VM and `~/.smarthub-vm`, rerun `install.sh`, and avoid opening the UI until the installer prints the generated credentials. |
+| Home Assistant disappears when the Mac leaves home | The Home Assistant OS VM still depends on the Mac host staying powered on and on the home LAN | Move Home Assistant / SmartHub to a dedicated Raspberry Pi if you need an always-on home hub. |
+
 ## ha-mcp Tool Errors
 
 | ToolError message | Meaning | Action |
@@ -56,6 +65,7 @@ Before telling the user the system is stuck, follow this recovery ladder for rec
      ```
    - Specific integration reload: use `ha_config_entries_get` to find the entry ID, then reload it via `ha_call_service` with `domain: homeassistant`, `service: reload_config_entry`, and `data: { "entry_id": "<entry_id>" }`.
 5. **Resume the checkpointed install** — if install bootstrap was interrupted, rerun `install.sh` from the repo root so it can restore `.env` from `.openclaw/install-state.json` or stop safely before HA is started with partial bootstrap state.
+   - On a macOS host, rerun `install.sh` from the macOS host so it can continue the VirtualBox + Home Assistant OS VM checkpoint instead of creating a second VM blindly.
 6. **Escalate** — stop and ask the user instead of guessing when the next step would cross a safety boundary:
    - ask before deleting `ha-config`
    - ask before replacing an existing token/account

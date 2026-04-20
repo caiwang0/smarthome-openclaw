@@ -32,6 +32,23 @@ fi
 exit 0
 """,
             "curl": """#!/usr/bin/env bash
+set -euo pipefail
+output=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o)
+      output="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ -n "$output" ]; then
+  : > "$output"
+  exit 0
+fi
 if [ "${STUB_FAIL_UV_INSTALL:-0}" = "1" ]; then
   echo "simulated uv install failure" >&2
   exit 1
@@ -79,10 +96,12 @@ exit 1
         workspace = home / ".openclaw" / "workspace"
         config_path = home / ".openclaw" / "openclaw.json"
         stub_bin = root / "bin"
+        stub_py = root / "python-stubs"
         repo_copy = root / "fixture-repo"
 
         workspace.mkdir(parents=True)
         config_path.parent.mkdir(parents=True, exist_ok=True)
+        stub_py.mkdir(parents=True, exist_ok=True)
         shutil.copytree(
             REPO_ROOT,
             repo_copy,
@@ -106,6 +125,15 @@ exit 1
         config_path.write_text(
             json.dumps({"agents": {"defaults": {"workspace": str(workspace)}}})
         )
+        (stub_py / "bcrypt.py").write_text(
+            "import hashlib\n"
+            "\n"
+            "def gensalt(rounds=12):\n"
+            "    return b'stub-salt'\n"
+            "\n"
+            "def hashpw(password, salt):\n"
+            "    return b'stub-' + hashlib.sha256(password + salt).hexdigest().encode()\n"
+        )
         self.write_stub_commands(stub_bin)
 
         env = os.environ.copy()
@@ -113,8 +141,13 @@ exit 1
             {
                 "HOME": str(home),
                 "PATH": f"{stub_bin}:{env['PATH']}",
+                "PYTHONPATH": f"{stub_py}:{env.get('PYTHONPATH', '')}".rstrip(":"),
                 "OPENCLAW_WORKSPACE": str(workspace),
                 "FIXTURE_REPO": str(repo_copy),
+                "SMARTHUB_TEST_UNAME": "Linux",
+                "SMARTHUB_TEST_RPI_MODEL": "Raspberry Pi 5 Model B Rev 1.0",
+                "SMARTHUB_VM_ENV_FILE": str(root / ".env"),
+                "SMARTHUB_VM_ENV_EXAMPLE_FILE": str(REPO_ROOT / ".env.example"),
             }
         )
         return env, workspace / "smarthome-openclaw", repo_copy
@@ -164,6 +197,236 @@ exit 1
             text=True,
             env=env,
         )
+
+    def stub_bin_path(self, env: dict[str, str]) -> Path:
+        return Path(env["PATH"].split(":", 1)[0])
+
+    def write_stub_script(self, env: dict[str, str], name: str, contents: str) -> None:
+        path = self.stub_bin_path(env) / name
+        path.write_text(contents)
+        path.chmod(0o755)
+
+    def constrain_path_to_stubs(self, env: dict[str, str]) -> None:
+        env["PATH"] = f"{self.stub_bin_path(env)}:/usr/bin:/bin:/usr/sbin:/sbin"
+
+    def test_macos_host_path_stops_before_workspace_lookup_without_virtualbox(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            shutil.rmtree(Path(env["OPENCLAW_WORKSPACE"]))
+            env.pop("OPENCLAW_WORKSPACE", None)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            self.constrain_path_to_stubs(env)
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("virtualbox", combined)
+            self.assertNotIn("workspace not found", combined)
+
+    def test_linux_guest_install_helper_exposes_entrypoint(self) -> None:
+        helper = REPO_ROOT / "scripts" / "linux-guest-install.sh"
+        proc = subprocess.run(
+            [
+                "bash",
+                "-lc",
+                f". '{helper}'; declare -F run_linux_guest_install",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+        self.assertIn("run_linux_guest_install", proc.stdout)
+
+    def test_linux_host_path_rejects_non_raspberry_pi_hosts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_ARCH"] = "x86_64"
+            env["SMARTHUB_TEST_RPI_MODEL"] = "Generic Linux Host"
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("unsupported linux host", combined)
+            self.assertIn("raspberry pi hosts and macos hosts only", combined)
+
+    def test_macos_host_path_installs_virtualbox_with_brew_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            env["STUB_BIN"] = str(self.stub_bin_path(env))
+            self.constrain_path_to_stubs(env)
+
+            self.write_stub_script(
+                env,
+                "brew",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'brew %s\\n' "$*" >> "$STUB_LOG"
+cat > "$STUB_BIN/VBoxManage" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+EOF
+chmod +x "$STUB_BIN/VBoxManage"
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertIn("brew install --cask virtualbox", log_text)
+            self.assertIn("VBoxManage createvm", log_text)
+            self.assertIn("home assistant admin username: openclaw", proc.stdout.lower())
+            self.assertIn("save this, it's the only time you'll see it.", proc.stdout.lower())
+
+    def test_macos_host_path_rejects_unknown_arch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "ppc64"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("unsupported mac architecture", combined)
+
+    def test_macos_host_path_selects_apple_silicon_haos_disk_image(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            self.constrain_path_to_stubs(env)
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            disk_path = Path(env["HOME"]) / ".smarthub-vm" / "cache" / "haos_generic-aarch64.vmdk"
+            self.assertIn(
+                "VBoxManage createvm --name smarthub-vm --platform-architecture arm --ostype Oracle_arm64 --register",
+                log_text,
+            )
+            self.assertIn("VBoxManage modifyvm smarthub-vm --firmware efi --memory 2048 --cpus 2", log_text)
+            self.assertIn("VBoxManage modifyvm smarthub-vm --graphicscontroller qemuramfb", log_text)
+            self.assertIn("VBoxManage modifyvm smarthub-vm --nic1 bridged --bridgeadapter1 en0", log_text)
+            self.assertIn(
+                f'VBoxManage storageattach smarthub-vm --storagectl SATA --port 0 --device 0 --type hdd --medium {disk_path}',
+                log_text,
+            )
+            self.assertIn("VBoxManage startvm smarthub-vm --type headless", log_text)
+            self.assertIn("home assistant os vm started.", proc.stdout.lower())
+            self.assertIn("home assistant admin username: openclaw", proc.stdout.lower())
+            self.assertIn("home assistant admin password: dry-run-password", proc.stdout.lower())
+            env_text = Path(env["SMARTHUB_VM_ENV_FILE"]).read_text()
+            self.assertIn("HA_URL=http://homeassistant.local:8123", env_text)
+            self.assertIn("HA_TOKEN=dry-run-token", env_text)
+
+    def test_macos_host_path_selects_intel_haos_disk_image(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "x86_64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            disk_path = Path(env["HOME"]) / ".smarthub-vm" / "cache" / "haos_ova.vdi"
+            self.assertIn(
+                "VBoxManage createvm --name smarthub-vm --platform-architecture x86 --ostype Oracle_64 --register",
+                log_text,
+            )
+            self.assertIn("VBoxManage modifyvm smarthub-vm --graphicscontroller vmsvga", log_text)
+            self.assertIn(
+                f'VBoxManage storageattach smarthub-vm --storagectl SATA --port 0 --device 0 --type hdd --medium {disk_path}',
+                log_text,
+            )
+            self.assertIn("open http://homeassistant.local:8123 in your browser.", proc.stdout.lower())
+            self.assertIn("home assistant vm ip: 192.168.2.142", proc.stdout.lower())
+            self.assertNotIn("unattended install", log_text.lower())
+
+    def test_macos_host_path_resume_skips_vm_creation_when_bootstrap_already_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+exit 0
+""",
+            )
+
+            first = self.run_install(env)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            checkpoint = Path(env["HOME"]) / ".smarthub-vm" / "bootstrap-state.json"
+            self.assertTrue(checkpoint.exists())
+            payload = json.loads(checkpoint.read_text())
+            self.assertEqual(payload["stage"], "ha-bootstrapped")
+
+            Path(env["STUB_LOG"]).write_text("")
+            second = self.run_install(env)
+
+            self.assertEqual(second.returncode, 0, second.stderr)
+            second_log = Path(env["STUB_LOG"]).read_text()
+            self.assertNotIn("VBoxManage createvm", second_log)
+            self.assertNotIn("VBoxManage startvm", second_log)
+            self.assertIn("VBoxManage modifyvm smarthub-vm --ostype Oracle_arm64", second_log)
+            self.assertIn(
+                "existing home assistant bootstrap credentials detected; leaving them unchanged.",
+                second.stdout.lower(),
+            )
 
     def test_install_seeds_token_and_prints_password_once_on_fresh_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

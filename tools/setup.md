@@ -4,11 +4,21 @@ You are walking a new user through setting up SmartHub from scratch. They alread
 
 This workflow has two entrypoints:
 - the user explicitly asks for help setting up Home Assistant / SmartHub
-- `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
+- Raspberry Pi `install.sh` just finished, so this doc is the automatic continuation target after `install.sh`
 
-When this doc is entered from `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+When this doc is entered from Raspberry Pi `install.sh`, continue immediately from the first relevant step without waiting for another user nudge. Follow each step in order. **Do not skip ahead.** Only wait when a step explicitly tells you to wait for the user's confirmation.
+
+If `install.sh` just finished on a macOS host, stop here: the macOS installer installs VirtualBox if needed, detects Intel vs Apple Silicon, boots the official Home Assistant OS VM, creates the initial Home Assistant admin account, and syncs the generated token into `.env`. The browser UI is only for signing in afterward, not for first-run onboarding.
 
 Before telling the user setup is stuck, follow the recovery ladder in `tools/_errors.md`.
+
+---
+
+## Host / Guest Boundary
+
+- **macOS host**: `install.sh` uses the macOS host only to install or verify VirtualBox, detect Intel vs Apple Silicon, boot the official Home Assistant OS VM, and drive the first-run Home Assistant bootstrap over the network APIs. Do not run Docker, `hostname -I`, `systemctl --user`, or Avahi commands on the macOS host.
+- **Raspberry Pi runtime**: every shell command in this setup guide runs on the Raspberry Pi that actually hosts SmartHub unless a step explicitly says "browser machine".
+- **Browser machine**: the user opens Home Assistant and OAuth links here. It may be the same Mac, another laptop, or a phone on the same LAN.
 
 ---
 
@@ -115,17 +125,17 @@ done
 
 ## Step 4b: Set Up mDNS for homeassistant.local
 
-> **Only run this after HA is confirmed running (Step 4 polling succeeded).** mDNS broadcasts the Pi's IP so other devices on the LAN can reach HA — but only once HA is actually up.
+> **Only run this after HA is confirmed running (Step 4 polling succeeded).** This is a Raspberry Pi step. It broadcasts the Raspberry Pi IP so other devices on the LAN can reach HA — but only once HA is actually up.
 
 ```bash
 # Install avahi-utils if not already installed
 which avahi-publish >/dev/null 2>&1 || sudo apt-get install -y avahi-utils
 ```
 
-Create a systemd user service to broadcast `homeassistant.local`:
+Create a systemd user service on the Raspberry Pi to broadcast `homeassistant.local`:
 
 ```bash
-PI_IP=$(hostname -I | awk '{print $1}')
+HA_HOST_IP=$(hostname -I | awk '{print $1}')
 
 mkdir -p ~/.config/systemd/user
 
@@ -135,7 +145,7 @@ Description=Broadcast homeassistant.local via mDNS
 After=network.target avahi-daemon.service
 
 [Service]
-ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${PI_IP}
+ExecStart=/usr/bin/avahi-publish-address -R homeassistant.local ${HA_HOST_IP}
 Restart=on-failure
 RestartSec=5
 
@@ -154,14 +164,14 @@ Verify it's working:
 avahi-resolve -n homeassistant.local
 ```
 
-Should show the Pi's IP.
+Should show the Raspberry Pi IP.
 
 ```bash
 # Get the HA port for user-facing messages
 HA_PORT=$(grep HA_URL .env | grep -oP ':\K[0-9]+' || echo "8123")
 ```
 
-Any device on the same network can now reach Home Assistant at `http://homeassistant.local:${HA_PORT}`.
+Any browser machine on the same network can now reach Home Assistant at `http://homeassistant.local:${HA_PORT}`.
 
 > Do NOT tell the user about this step — just run it silently. It's infrastructure setup.
 
@@ -171,17 +181,17 @@ Any device on the same network can now reach Home Assistant at `http://homeassis
 
 > **If `.env` already has a real `HA_TOKEN`, onboarding was pre-seeded by `install.sh`. Skip Steps 5, 6, and 7 and continue with Step 8.**
 
-First, get the Pi's IP and HA port:
+First, get the Raspberry Pi IP and HA port:
 
 ```bash
-PI_IP=$(hostname -I | awk '{print $1}')
+HA_HOST_IP=$(hostname -I | awk '{print $1}')
 HA_PORT=$(grep HA_URL .env 2>/dev/null | grep -oP ':\K[0-9]+' || echo "8123")
 ```
 
 Tell the user, using the values you just obtained:
 
 > Home Assistant is running! Open this in your browser:
-> **http://<PI_IP>:<HA_PORT>**
+> **http://<HA_HOST_IP>:<HA_PORT>**
 >
 > You'll see the onboarding wizard. Follow these steps:
 > 1. **Create your admin account** — pick a name, username, and password
