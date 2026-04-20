@@ -130,7 +130,7 @@ The installer auto-detects the host:
 | Start Home Assistant | Launches HA on the Linux host or boots the HA OS VM on macOS |
 | First HA login | On a fresh install, bootstraps the initial Home Assistant admin account and prints the generated username/password once |
 | Access token | Generates or recovers the Home Assistant token automatically and syncs it into `.env` |
-| Verify runtime | Verifies `ha-mcp`, Home Assistant reachability, and the repo config before handoff |
+| Verify runtime | Verifies `ha-mcp` and the repo config, then starts Home Assistant before handoff |
 | Add integrations | Walks you through adding Xiaomi, Philips Hue, or any other brand |
 | Discover devices | Shows what devices were found after each integration |
 | Remote access *(optional)* | Sets up a Cloudflare Tunnel so you can reach HA from anywhere |

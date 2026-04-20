@@ -84,6 +84,20 @@ exec python3 "${args[@]}"
             "uvx": """#!/usr/bin/env bash
 exit 0
 """,
+            "docker": """#!/usr/bin/env bash
+set -euo pipefail
+if [ -n "${STUB_LOG:-}" ]; then
+  printf 'docker %s\\n' "$*" >> "$STUB_LOG"
+fi
+if [ "${1:-}" = "--version" ]; then
+  echo "Docker version 27.0.0, build stub"
+  exit 0
+fi
+if [ "${1:-}" = "compose" ] && [ "${2:-}" = "up" ] && [ "${3:-}" = "-d" ]; then
+  exit 0
+fi
+exit 0
+""",
             "ss": """#!/usr/bin/env bash
 exit 1
 """,
@@ -247,7 +261,13 @@ exit 1
             self.assertNotIn("installer helper missing", combined)
 
             git_ops = Path(env["STUB_LOG"]).read_text().splitlines()
-            self.assertEqual(git_ops, ["git clone https://github.com/caiwang0/smarthome-openclaw.git " + str(target)])
+            self.assertEqual(
+                git_ops,
+                [
+                    "git clone https://github.com/caiwang0/smarthome-openclaw.git " + str(target),
+                    "docker compose up -d",
+                ],
+            )
 
     def test_linux_guest_install_helper_exposes_entrypoint(self) -> None:
         helper = REPO_ROOT / "scripts" / "linux-guest-install.sh"
@@ -274,6 +294,17 @@ exit 1
             self.assertEqual(proc.returncode, 0, proc.stderr)
             combined = (proc.stdout + proc.stderr).lower()
             self.assertNotIn("unsupported linux host", combined)
+
+    def test_linux_host_path_starts_home_assistant_container(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertIn("docker compose up -d", log_text)
 
     def test_macos_host_path_installs_virtualbox_with_brew_when_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

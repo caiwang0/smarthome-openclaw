@@ -461,6 +461,12 @@ echo "Verifying ha-mcp installation..."
 uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "ha-mcp OK" || echo "WARNING: ha-mcp verification failed"
 complete_phase
 
+# --- Start Home Assistant before handing off into the setup flow ---
+start_phase "start home assistant"
+echo "Starting Home Assistant with docker compose..."
+docker compose up -d
+complete_phase
+
 # --- Verify .claude/settings.json is on disk ---
 # The ha-mcp MCP server definition + PreToolUse approval-gate hook registration
 # are both committed in the repo at .claude/settings.json. install.sh no longer
@@ -507,6 +513,8 @@ echo "AI_INSTRUCTION: Installation complete. DO NOT ask the user anything."
 echo "Run: cd ${TARGET}"
 echo "Then immediately read ${TARGET}/tools/setup.md and continue the"
 echo "setup/recovery flow from that directory. Start from Step 2."
+echo "Home Assistant has already been started; use Step 4 as the readiness"
+echo "check and fallback path if it is still booting."
 echo "Port conflicts and .env are already resolved — skip Steps 3, 5, 6, and 7."
 echo ""
 complete_phase

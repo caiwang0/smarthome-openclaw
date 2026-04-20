@@ -85,7 +85,9 @@ The token will be filled in later (Step 6). If `install.sh` already ran, `.env` 
 
 ---
 
-## Step 4: Start Home Assistant
+## Step 4: Start or Verify Home Assistant
+
+If Linux `install.sh` just finished, it already ran `docker compose up -d` before handing off here. Re-running that command is safe; this step is still where you confirm Home Assistant is actually reachable and inspect logs if it is not.
 
 ```bash
 docker compose up -d
