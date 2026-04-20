@@ -14,16 +14,16 @@
     {
       "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
       "tool_input": {
-        "handler": "hue",
-        "flow_id": "abc123"
+        "handler": "hue"
       },
       "transcript": "yes"
     }
   ],
   "expect": {
-    "decision": "deny",
-    "reason_contains": "explicit confirmation",
-    "confirmed": "yes",
-    "denied": "please continue"
+    "denied_start": "deny",
+    "confirmed_start": "allow",
+    "reason_contains": "explicit user confirmation",
+    "confirmed_transcript": "yes",
+    "denied_transcript": "please continue"
   }
 }
