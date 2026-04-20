@@ -1,0 +1,68 @@
+{
+  "workflow_id": "rdw-20260420-repo-hygiene",
+  "started": "2026-04-20T00:00:00+08:00",
+  "current_stage": "complete",
+  "artifacts": {
+    "issue_doc": "docs/repo-hygiene/issue-doc.md",
+    "plan_doc": "docs/repo-hygiene/plan.md",
+    "validation_report": "docs/repo-hygiene/validation-report.md"
+  },
+  "stages_completed": [
+    "document",
+    "plan",
+    "implement",
+    "validate"
+  ],
+  "phases": {
+    "total": 4,
+    "completed": [
+      "task-1-verify-and-remove-legacy-backend-surfaces",
+      "task-2-remove-unused-identity-scaffolding-without-breaking-the-reusable-template-flow",
+      "task-3-separate-live-docs-from-history-and-remove-stale-architecture-claims",
+      "task-4-run-focused-validation-and-capture-the-workflow-result"
+    ],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "PASS",
+      "note": "Inline completeness review passed: the issue doc contains a full Intent section, four discrete findings, and concrete validation criteria with no placeholder language."
+    },
+    {
+      "stage": "plan",
+      "round": 1,
+      "result": "PASS",
+      "note": "Tier 1 plan written and self-reviewed inline. Each finding maps to a concrete cleanup task plus focused validation, with the `api/` verification gate first."
+    },
+    {
+      "stage": "implement-task-1",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Verified there were no live runtime/config/install references to the legacy backend, then moved `api/` and `harness/` to Trash."
+    },
+    {
+      "stage": "implement-task-2",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "User clarified that `USER.md` should remain a public template for GitHub reuse, so only `IDENTITY.md` was removed."
+    },
+    {
+      "stage": "implement-task-3",
+      "round": 1,
+      "result": "APPROVED",
+      "note": "Archived historical incident, RDW, and strategy docs under `docs/archive/`, added an archive README, and marked P3 complete in `docs/fix-checklist.md`."
+    },
+    {
+      "stage": "validate",
+      "round": 1,
+      "result": "PASS",
+      "note": "Fresh validation evidence recorded in `docs/repo-hygiene/validation-report.md`: both grep gates were clean, top-level docs were reduced to live materials, and the focused pytest suite passed (11/11)."
+    }
+  ],
+  "tier": 1,
+  "discoveries": [],
+  "learnings_captured": []
+}
