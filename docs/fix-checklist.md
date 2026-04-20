@@ -57,12 +57,14 @@ Status: completed in repo on 2026-04-15 for items 5-9. Item 9a remains paused an
 
 ## P3 — Repo hygiene that the rest of the work exposes
 
+Status: completed in repo on 2026-04-20 for items 14-17.
+
 | # | Item | Description | Touches |
 |---|------|-------------|---------|
-| 14 | Decide the fate of `api/` | The Elysia/Bun HTTP server looks legacy (pre-MCP architecture). Either delete or document why it still exists. Currently confusing. | `api/` |
-| 15 | Decide the fate of `harness/` | Has `bun.lock` + `dist/` but `prompts/` is empty. Same question: live or dead? | `harness/` |
-| 16 | Fill in or remove `IDENTITY.md` / `USER.md` | Both are skeleton templates with empty fields. Either delete or populate with actual OpenClaw/user defaults. | `IDENTITY.md`, `USER.md` |
-| 17 | Prune stale `docs/` artifacts | `docs/` has accumulated a lot (appendix, Issues, multiple rdw-* files). Separate live strategy docs from historical artifacts. | `docs/` |
+| 14 | Decide the fate of `api/` | Verified the Elysia/Bun backend had no active runtime/config/install wiring, then removed `api/` from the workspace. | `api/` |
+| 15 | Decide the fate of `harness/` | Confirmed `harness/` was only local residue (`bun.lock` + built output) and removed it from the workspace. | `harness/` |
+| 16 | Fill in or remove `IDENTITY.md` / `USER.md` | Removed `IDENTITY.md`. Kept `USER.md` intentionally generic because this repo is being published for others to copy and fill in. | `IDENTITY.md`, `USER.md` |
+| 17 | Prune stale `docs/` artifacts | Moved incident, RDW, and strategy/history files under `docs/archive/` so top-level `docs/` only carries live materials and assets. | `docs/` |
 
 ---
 
@@ -71,7 +73,7 @@ Status: completed in repo on 2026-04-15 for items 5-9. Item 9a remains paused an
 - **Completed — P0 items 1–4.** Tightly coupled bundle is already landed in the repo.
 - **Completed — P1 items 5–9.** The first-win setup path, passive-first discovery flow, fingerprint corpus, empty-instance guardrail, and approval-boundary audit are landed in the repo.
 - **Later PR — P1 item 9a + P2.** Explicit HACS choice branch + structural cleanup, now that the new flow exists.
-- **P3 is ongoing cleanup.** Do during the other PRs when touching adjacent files.
+- **Completed — P3 items 14–17.** Legacy backend residue is gone, reusable templates are clarified, and historical docs are archived under `docs/archive/`.
 
 ## What this doesn't change
 

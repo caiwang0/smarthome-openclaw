@@ -1,0 +1,30 @@
+{
+  "workflow_id": "rdw-20260417-macos-linux-vm-smarthub",
+  "started": "2026-04-17T18:05:00+08:00",
+  "current_stage": "plan",
+  "artifacts": {
+    "issue_doc": "docs/macos-linux-vm-smarthub-issue-doc.md",
+    "plan_doc": null,
+    "validation_report": null
+  },
+  "stages_completed": [
+    "document"
+  ],
+  "phases": {
+    "total": null,
+    "completed": [],
+    "current": null,
+    "failed": []
+  },
+  "review_log": [
+    {
+      "stage": "document",
+      "round": 1,
+      "result": "PASS",
+      "note": "Inline completeness review passed: Intent is explicit, all 7 findings have concrete affected components and testable success criteria, and the issue doc has no placeholders. Reviewer subagents were not used in this session."
+    }
+  ],
+  "tier": 2,
+  "discoveries": [],
+  "learnings_captured": []
+}
