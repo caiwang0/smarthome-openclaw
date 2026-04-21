@@ -309,6 +309,35 @@ exit 1
             log_text = Path(env["STUB_LOG"]).read_text()
             self.assertIn("docker compose up -d", log_text)
 
+    def test_linux_host_path_verifies_ha_mcp_with_home_assistant_env(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.write_stub_script(
+                env,
+                "uvx",
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf 'uvx HOMEASSISTANT_URL=%s HOMEASSISTANT_TOKEN=%s ARGS=%s\\n' "${HOMEASSISTANT_URL:-}" "${HOMEASSISTANT_TOKEN:-}" "$*" >> "$STUB_LOG"
+if [ -z "${HOMEASSISTANT_URL:-}" ] || [ -z "${HOMEASSISTANT_TOKEN:-}" ]; then
+  exit 1
+fi
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            output = proc.stdout.lower()
+            self.assertIn("ha-mcp ok", output)
+            self.assertNotIn("warning: ha-mcp verification failed", output)
+
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertIn("uvx HOMEASSISTANT_URL=http://localhost:8123", log_text)
+            self.assertRegex(log_text, r"HOMEASSISTANT_TOKEN=\S+")
+            self.assertIn("ARGS=ha-mcp@7.2.0 --help", log_text)
+
     def test_macos_host_path_installs_virtualbox_with_brew_when_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env, _, _ = self.prepare_env(tmp)

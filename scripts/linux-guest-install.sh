@@ -458,7 +458,15 @@ complete_phase
 
 start_phase "verify ha-mcp"
 echo "Verifying ha-mcp installation..."
-uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "ha-mcp OK" || echo "WARNING: ha-mcp verification failed"
+HA_MCP_VERIFY_URL="$(grep '^HA_URL=' .env 2>/dev/null | cut -d= -f2- || true)"
+HA_MCP_VERIFY_TOKEN="$(grep '^HA_TOKEN=' .env 2>/dev/null | cut -d= -f2- || true)"
+if [ -n "$HA_MCP_VERIFY_URL" ] && ! is_missing_or_placeholder_token "$HA_MCP_VERIFY_TOKEN"; then
+  HOMEASSISTANT_URL="$HA_MCP_VERIFY_URL" \
+  HOMEASSISTANT_TOKEN="$HA_MCP_VERIFY_TOKEN" \
+  uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "ha-mcp OK" || echo "WARNING: ha-mcp verification failed"
+else
+  uvx ha-mcp@7.2.0 --help >/dev/null 2>&1 && echo "ha-mcp OK" || echo "WARNING: ha-mcp verification failed"
+fi
 complete_phase
 
 # --- Start Home Assistant before handing off into the setup flow ---
