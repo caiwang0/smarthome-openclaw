@@ -152,6 +152,10 @@ smarthub_vm_ha_base_url() {
   printf '%s\n' "${SMARTHUB_VM_HA_BASE_URL:-http://homeassistant.local:8123}"
 }
 
+smarthub_vm_ha_candidate_ports() {
+  printf '%s\n' "${SMARTHUB_VM_HA_PORT_CANDIDATES:-8123 8124 8125 8126 8127 8128}"
+}
+
 smarthub_vm_ha_admin_name() {
   printf '%s\n' "${SMARTHUB_VM_HA_ADMIN_NAME:-OpenClaw}"
 }

@@ -1,9 +1,12 @@
+import http.server
 import json
 import os
 import re
 import shutil
+import socketserver
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -403,7 +406,7 @@ exit 0
             self.assertIn("home assistant admin username: openclaw", proc.stdout.lower())
             self.assertIn("home assistant admin password: dry-run-password", proc.stdout.lower())
             env_text = Path(env["SMARTHUB_VM_ENV_FILE"]).read_text()
-            self.assertIn("HA_URL=http://homeassistant.local:8123", env_text)
+            self.assertIn("HA_URL=http://192.168.2.142:8123", env_text)
             self.assertIn("HA_TOKEN=dry-run-token", env_text)
 
     def test_macos_host_path_selects_intel_haos_disk_image(self) -> None:
@@ -439,7 +442,7 @@ exit 0
                 f'VBoxManage storageattach smarthub-vm --storagectl SATA --port 0 --device 0 --type hdd --medium {disk_path}',
                 log_text,
             )
-            self.assertIn("open http://homeassistant.local:8123 in your browser.", proc.stdout.lower())
+            self.assertIn("open http://192.168.2.142:8123 in your browser.", proc.stdout.lower())
             self.assertIn("home assistant vm ip: 192.168.2.142", proc.stdout.lower())
             self.assertNotIn("unattended install", log_text.lower())
 
@@ -452,12 +455,21 @@ exit 0
             env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
             env["STUB_LOG"] = str(Path(tmp) / "stub.log")
             self.constrain_path_to_stubs(env)
+            disk_path = Path(env["HOME"]) / ".smarthub-vm" / "cache" / "haos_generic-aarch64.vmdk"
             self.write_stub_script(
                 env,
                 "VBoxManage",
-                """#!/usr/bin/env bash
+                f"""#!/usr/bin/env bash
 set -euo pipefail
 printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+if [ "${{1:-}}" = "showvminfo" ]; then
+  cat <<'EOF'
+platformArchitecture="ARM"
+"SATA-0-0"="{disk_path}"
+VMState="running"
+EOF
+  exit 0
+fi
 exit 0
 """,
             )
@@ -476,7 +488,7 @@ exit 0
             second_log = Path(env["STUB_LOG"]).read_text()
             self.assertNotIn("VBoxManage createvm", second_log)
             self.assertNotIn("VBoxManage startvm", second_log)
-            self.assertIn("VBoxManage modifyvm smarthub-vm --ostype Oracle_arm64", second_log)
+            self.assertNotIn("VBoxManage modifyvm", second_log)
             self.assertIn(
                 "existing home assistant bootstrap credentials detected; leaving them unchanged.",
                 second.stdout.lower(),
@@ -504,6 +516,7 @@ exit 0
                 json.dumps(
                     {
                         "base_url": "http://homeassistant.local:8123",
+                        "resolved_ip": "192.168.2.142",
                         "created": False,
                         "token": "existing-token",
                     }
@@ -540,6 +553,95 @@ exit 0
                 "existing home assistant bootstrap credentials detected; leaving them unchanged.",
                 proc.stdout.lower(),
             )
+
+    def test_macos_host_path_resume_skips_modify_and_start_when_vm_checkpoint_is_running(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+
+            state_dir = Path(env["HOME"]) / ".smarthub-vm"
+            cache_dir = state_dir / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            disk_path = cache_dir / "haos_generic-aarch64.vmdk"
+            disk_path.write_text("")
+            (state_dir / "bootstrap-state.json").write_text(
+                json.dumps({"stage": "vm-started", "vm_name": "smarthub-vm"}) + "\n"
+            )
+
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+if [ "${{1:-}}" = "showvminfo" ]; then
+  cat <<'EOF'
+platformArchitecture="ARM"
+"SATA-0-0"="{disk_path}"
+VMState="running"
+EOF
+  exit 0
+fi
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertNotIn("VBoxManage createvm", log_text)
+            self.assertNotIn("VBoxManage modifyvm", log_text)
+            self.assertNotIn("VBoxManage startvm", log_text)
+
+    def test_macos_host_path_vm_started_checkpoint_restarts_powered_off_vm(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+
+            state_dir = Path(env["HOME"]) / ".smarthub-vm"
+            cache_dir = state_dir / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            disk_path = cache_dir / "haos_generic-aarch64.vmdk"
+            disk_path.write_text("")
+            (state_dir / "bootstrap-state.json").write_text(
+                json.dumps({"stage": "vm-started", "vm_name": "smarthub-vm"}) + "\n"
+            )
+
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+if [ "${{1:-}}" = "showvminfo" ]; then
+  cat <<'EOF'
+platformArchitecture="ARM"
+"SATA-0-0"="{disk_path}"
+VMState="poweroff"
+EOF
+  exit 0
+fi
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertIn("VBoxManage modifyvm smarthub-vm --ostype Oracle_arm64", log_text)
+            self.assertIn("VBoxManage startvm smarthub-vm --type headless", log_text)
 
     def test_macos_host_path_recreates_vm_when_checkpoint_exists_but_virtualbox_vm_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -636,6 +738,117 @@ exit 0
             log_text = Path(env["STUB_LOG"]).read_text()
             self.assertNotIn("VBoxManage unregistervm", log_text)
             self.assertNotIn("VBoxManage createvm", log_text)
+
+    def test_macos_vm_detect_ha_port_finds_responsive_candidate_port(self) -> None:
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802
+                if self.path != "/api/onboarding":
+                    self.send_error(404)
+                    return
+                body = b"[]"
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        with socketserver.TCPServer(("127.0.0.1", 0), Handler) as server:
+            port = server.server_address[1]
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                helper = REPO_ROOT / "scripts" / "macos-vm-bootstrap.sh"
+                proc = subprocess.run(
+                    [
+                        "bash",
+                        "-lc",
+                        "\n".join(
+                            [
+                                "set -euo pipefail",
+                                "fail_install() { echo \"$1\" >&2; exit 1; }",
+                                f"SCRIPT_DIR='{REPO_ROOT}'",
+                                f". '{helper}'",
+                                "export SMARTHUB_VM_HA_BOOTSTRAP_TIMEOUT_SECONDS=5",
+                                "export SMARTHUB_VM_HA_BOOTSTRAP_POLL_INTERVAL_SECONDS=1",
+                                f"export SMARTHUB_VM_HA_PORT_CANDIDATES='1 {port}'",
+                                "smarthub_vm_detect_ha_port 127.0.0.1",
+                            ]
+                        ),
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+            finally:
+                server.shutdown()
+                thread.join()
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), str(port))
+
+    def test_macos_vm_detect_ip_matches_zero_padded_virtualbox_mac_to_arp_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            helper = REPO_ROOT / "scripts" / "macos-vm-bootstrap.sh"
+            stub_bin = Path(tmp) / "bin"
+            stub_bin.mkdir(parents=True, exist_ok=True)
+
+            (stub_bin / "VBoxManage").write_text(
+                """#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+macaddress1="08002743E955"
+EOF
+"""
+            )
+            (stub_bin / "VBoxManage").chmod(0o755)
+
+            (stub_bin / "ifconfig").write_text(
+                """#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+en0: flags=8863<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+\tinet 192.168.2.10 netmask 0xffffff00 broadcast 192.168.2.255
+EOF
+"""
+            )
+            (stub_bin / "ifconfig").chmod(0o755)
+
+            (stub_bin / "arp").write_text(
+                """#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+? (192.168.2.144) at 8:0:27:43:e9:55 on en0 ifscope [ethernet]
+EOF
+"""
+            )
+            (stub_bin / "arp").chmod(0o755)
+
+            proc = subprocess.run(
+                [
+                    "bash",
+                    "-lc",
+                    "\n".join(
+                        [
+                            "set -euo pipefail",
+                            "fail_install() { echo \"$1\" >&2; exit 1; }",
+                            f"export PATH='{stub_bin}:/usr/bin:/bin:/usr/sbin:/sbin'",
+                            f"SCRIPT_DIR='{REPO_ROOT}'",
+                            f". '{helper}'",
+                            "export SMARTHUB_VM_BRIDGE_ADAPTER='en0'",
+                            "export SMARTHUB_VM_HA_BOOTSTRAP_TIMEOUT_SECONDS=2",
+                            "export SMARTHUB_VM_HA_BOOTSTRAP_POLL_INTERVAL_SECONDS=1",
+                            "smarthub_vm_detect_ip",
+                        ]
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), "192.168.2.144")
 
     def test_install_seeds_token_and_prints_password_once_on_fresh_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

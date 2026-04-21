@@ -232,6 +232,199 @@ smarthub_vm_disk_path() {
   printf '%s/%s\n' "$(smarthub_vm_cache_dir)" "${archive_name%.zip}"
 }
 
+smarthub_vm_bridge_interface_name() {
+  local adapter
+  adapter="${1:-$(smarthub_vm_bridged_adapter)}"
+  printf '%s\n' "${adapter%%:*}"
+}
+
+smarthub_vm_mac_address() {
+  local vm_name mac_address
+  vm_name="$(smarthub_vm_name)"
+  mac_address="$(
+    VBoxManage showvminfo "$vm_name" --machinereadable 2>/dev/null | awk -F= '/^macaddress1=/{gsub(/"/, "", $2); print $2; exit}'
+  )"
+  if [ -z "$mac_address" ]; then
+    fail_install \
+      "Unable to read the bridged network MAC address for VirtualBox VM '$vm_name'." \
+      "Inspect the VirtualBox VM networking settings, then rerun SmartHub."
+  fi
+  printf '%s\n' "$mac_address"
+}
+
+smarthub_vm_detect_ip() {
+  local interface_name mac_address detected_ip
+  if smarthub_vm_dry_run_enabled; then
+    printf '192.168.2.142\n'
+    return
+  fi
+
+  interface_name="$(smarthub_vm_bridge_interface_name)"
+  mac_address="$(smarthub_vm_mac_address)"
+  detected_ip="$(
+    python3 - "$interface_name" "$mac_address" "$(smarthub_vm_ha_bootstrap_timeout_seconds)" "$(smarthub_vm_ha_bootstrap_poll_interval_seconds)" <<'PY'
+import concurrent.futures
+import ipaddress
+import re
+import socket
+import subprocess
+import sys
+import time
+
+
+def normalize_mac(value: str) -> str:
+    value = value.strip().lower()
+    if ":" in value:
+        parts = [part for part in value.split(":") if part]
+        return "".join(part.zfill(2) for part in parts)
+    hex_chars = "".join(ch for ch in value if ch in "0123456789abcdef")
+    if len(hex_chars) % 2 == 1:
+        hex_chars = "0" + hex_chars
+    return hex_chars
+
+
+def read_interface_network(interface_name: str) -> tuple[ipaddress.IPv4Network, str]:
+    output = subprocess.check_output(["ifconfig", interface_name], text=True)
+    match = re.search(r"\binet\s+(\d+\.\d+\.\d+\.\d+)\s+netmask\s+(0x[0-9a-fA-F]+)", output)
+    if match is None:
+        raise SystemExit(1)
+
+    host_ip = match.group(1)
+    netmask = int(match.group(2), 16)
+    prefix = bin(netmask).count("1")
+    network = ipaddress.ip_network(f"{host_ip}/{prefix}", strict=False)
+    if network.num_addresses > 4096:
+        network = ipaddress.ip_network(f"{host_ip}/24", strict=False)
+    return network, host_ip
+
+
+def find_ip_in_arp_table(interface_name: str, target_mac: str):
+    output = subprocess.check_output(["arp", "-an"], text=True, stderr=subprocess.DEVNULL)
+    for line in output.splitlines():
+        match = re.search(r"\(([^)]+)\)\s+at\s+([0-9A-Fa-f:]+)\s+on\s+(\S+)", line)
+        if match is None:
+            continue
+        ip_address, mac_address, arp_interface = match.groups()
+        if arp_interface != interface_name:
+            continue
+        if normalize_mac(mac_address) == target_mac:
+            return ip_address
+    return None
+
+
+def touch_host(ip_address: str) -> None:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.settimeout(0.25)
+        sock.connect((ip_address, 8123))
+    except OSError:
+        pass
+    finally:
+        sock.close()
+
+
+interface_name = sys.argv[1]
+target_mac = normalize_mac(sys.argv[2])
+timeout_seconds = int(sys.argv[3])
+interval_seconds = int(sys.argv[4])
+
+network, host_ip = read_interface_network(interface_name)
+hosts = [str(host) for host in network.hosts() if str(host) != host_ip]
+deadline = time.monotonic() + timeout_seconds
+
+while time.monotonic() < deadline:
+    current = find_ip_in_arp_table(interface_name, target_mac)
+    if current:
+        print(current)
+        raise SystemExit(0)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
+        list(executor.map(touch_host, hosts))
+
+    current = find_ip_in_arp_table(interface_name, target_mac)
+    if current:
+        print(current)
+        raise SystemExit(0)
+
+    time.sleep(interval_seconds)
+
+raise SystemExit(1)
+PY
+  )" || true
+  if [ -z "$detected_ip" ]; then
+    fail_install \
+      "Unable to determine the Home Assistant VM IP on the bridged network." \
+      "Set SMARTHUB_VM_HA_BASE_URL to http://<vm-ip>:8123 and rerun SmartHub."
+  fi
+  printf '%s\n' "$detected_ip"
+}
+
+smarthub_vm_detect_ha_port() {
+  local detected_ip="$1" detected_port
+  local -a candidate_ports
+  if smarthub_vm_dry_run_enabled; then
+    printf '8123\n'
+    return
+  fi
+
+  read -r -a candidate_ports <<<"$(smarthub_vm_ha_candidate_ports)"
+  if [ "${#candidate_ports[@]}" -eq 0 ]; then
+    candidate_ports=(8123)
+  fi
+
+  detected_port="$(
+    python3 - "$detected_ip" "$(smarthub_vm_ha_bootstrap_timeout_seconds)" "$(smarthub_vm_ha_bootstrap_poll_interval_seconds)" "${candidate_ports[@]}" <<'PY'
+import sys
+import time
+import urllib.error
+import urllib.request
+
+
+ip_address = sys.argv[1]
+timeout_seconds = int(sys.argv[2])
+interval_seconds = int(sys.argv[3])
+ports = [int(value) for value in sys.argv[4:]] or [8123]
+deadline = time.monotonic() + timeout_seconds
+
+while time.monotonic() < deadline:
+    for port in ports:
+        url = f"http://{ip_address}:{port}/api/onboarding"
+        try:
+            with urllib.request.urlopen(url, timeout=3) as response:
+                response.read(1)
+            print(port)
+            raise SystemExit(0)
+        except urllib.error.HTTPError:
+            print(port)
+            raise SystemExit(0)
+        except (OSError, urllib.error.URLError, TimeoutError):
+            continue
+
+    time.sleep(interval_seconds)
+
+raise SystemExit(1)
+PY
+  )" || true
+  if [ -z "$detected_port" ]; then
+    fail_install \
+      "Unable to determine which Home Assistant port is serving the VM at $detected_ip." \
+      "Set SMARTHUB_VM_HA_BASE_URL to http://<vm-ip>:<vm-port> and rerun SmartHub."
+  fi
+  printf '%s\n' "$detected_port"
+}
+
+smarthub_vm_bootstrap_base_url() {
+  local detected_ip detected_port
+  if [ -n "${SMARTHUB_VM_HA_BASE_URL:-}" ]; then
+    printf '%s\n' "$SMARTHUB_VM_HA_BASE_URL"
+    return
+  fi
+
+  detected_ip="$(smarthub_vm_detect_ip)"
+  detected_port="$(smarthub_vm_detect_ha_port "$detected_ip")"
+  printf 'http://%s:%s\n' "$detected_ip" "$detected_port"
+}
+
 smarthub_vm_normalize_virtualbox_platform_arch() {
   local normalized
   normalized="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
@@ -379,7 +572,7 @@ PY
 }
 
 smarthub_vm_configure_virtualbox_vm() {
-  local vm_name bridge_adapter disk_path current_stage existing_machine_info existing_platform_arch expected_platform_arch attached_disk_path
+  local vm_name bridge_adapter disk_path current_stage existing_machine_info existing_platform_arch expected_platform_arch attached_disk_path existing_vm_state
   vm_name="$(smarthub_vm_name)"
   bridge_adapter="$(smarthub_vm_bridged_adapter)"
   disk_path="$(smarthub_vm_disk_path)"
@@ -394,6 +587,9 @@ smarthub_vm_configure_virtualbox_vm() {
       expected_platform_arch="$(smarthub_vm_virtualbox_platform_arch)"
       attached_disk_path="$(
         printf '%s\n' "$existing_machine_info" | awk -F= '/^"SATA-0-0"=/{gsub(/"/, "", $2); print $2; exit}'
+      )"
+      existing_vm_state="$(
+        printf '%s\n' "$existing_machine_info" | awk -F= '/^VMState=/{gsub(/"/, "", $2); print $2; exit}'
       )"
       if [ -n "$existing_platform_arch" ] && [ "$existing_platform_arch" != "$expected_platform_arch" ]; then
         smarthub_vm_fail_manual_recreate_required \
@@ -410,6 +606,9 @@ smarthub_vm_configure_virtualbox_vm() {
   fi
 
   if smarthub_vm_stage_reached "$current_stage" "vm-created"; then
+    if smarthub_vm_stage_reached "$current_stage" "vm-started" && [ "${existing_vm_state:-}" = "running" ]; then
+      return
+    fi
     VBoxManage modifyvm "$vm_name" --ostype "$(smarthub_vm_virtualbox_ostype)"
     VBoxManage modifyvm "$vm_name" --firmware efi --memory "$(smarthub_vm_ram_mb)" --cpus "$(smarthub_vm_cpus)"
     VBoxManage modifyvm "$vm_name" --graphicscontroller "$(smarthub_vm_virtualbox_graphics_controller)"
@@ -430,17 +629,18 @@ smarthub_vm_start_vm() {
   local vm_name current_stage current_vm_state
   vm_name="$(smarthub_vm_name)"
   current_stage="$(smarthub_vm_read_stage)"
-  if smarthub_vm_stage_reached "$current_stage" "vm-started"; then
-    return
-  fi
-
   current_vm_state="$(
     VBoxManage showvminfo "$vm_name" --machinereadable 2>/dev/null | awk -F= '/^VMState=/{gsub(/"/, "", $2); print $2; exit}'
   )"
+  if smarthub_vm_stage_reached "$current_stage" "vm-started" && [ "$current_vm_state" = "running" ]; then
+    return
+  fi
   if [ "$current_vm_state" != "running" ]; then
     VBoxManage startvm "$vm_name" --type headless
   fi
-  smarthub_vm_write_state "vm-started" "$vm_name"
+  if ! smarthub_vm_stage_reached "$current_stage" "vm-started"; then
+    smarthub_vm_write_state "vm-started" "$vm_name"
+  fi
 }
 
 smarthub_vm_bootstrap_home_assistant() {
@@ -473,7 +673,7 @@ smarthub_vm_bootstrap_home_assistant() {
   smarthub_vm_ensure_state_dir
   result_tmp="$(mktemp)"
   if ! python3 "$helper" \
-    --base-url "$(smarthub_vm_ha_base_url)" \
+    --base-url "$(smarthub_vm_bootstrap_base_url)" \
     --name "$(smarthub_vm_ha_admin_name)" \
     --username "$(smarthub_vm_ha_admin_username)" \
     --wait-timeout "$(smarthub_vm_ha_bootstrap_timeout_seconds)" \
