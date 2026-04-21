@@ -482,6 +482,161 @@ exit 0
                 second.stdout.lower(),
             )
 
+    def test_macos_host_path_resume_reuses_existing_vm_when_virtualbox_reports_uppercase_arm_arch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+
+            state_dir = Path(env["HOME"]) / ".smarthub-vm"
+            cache_dir = state_dir / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            disk_path = cache_dir / "haos_generic-aarch64.vmdk"
+            disk_path.write_text("")
+            (state_dir / "bootstrap-state.json").write_text(
+                json.dumps({"stage": "ha-bootstrapped", "vm_name": "smarthub-vm"}) + "\n"
+            )
+            (state_dir / "ha-bootstrap.json").write_text(
+                json.dumps(
+                    {
+                        "base_url": "http://homeassistant.local:8123",
+                        "created": False,
+                        "token": "existing-token",
+                    }
+                )
+                + "\n"
+            )
+
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+if [ "${{1:-}}" = "showvminfo" ]; then
+  cat <<'EOF'
+platformArchitecture="ARM"
+"SATA-0-0"="{disk_path}"
+VMState="poweroff"
+EOF
+  exit 0
+fi
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertNotIn("VBoxManage unregistervm", log_text)
+            self.assertNotIn("VBoxManage createvm", log_text)
+            self.assertIn("VBoxManage modifyvm smarthub-vm --ostype Oracle_arm64", log_text)
+            self.assertIn(
+                "existing home assistant bootstrap credentials detected; leaving them unchanged.",
+                proc.stdout.lower(),
+            )
+
+    def test_macos_host_path_recreates_vm_when_checkpoint_exists_but_virtualbox_vm_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+
+            state_dir = Path(env["HOME"]) / ".smarthub-vm"
+            state_dir.mkdir(parents=True, exist_ok=True)
+            (state_dir / "bootstrap-state.json").write_text(
+                json.dumps({"stage": "vm-started", "vm_name": "smarthub-vm"}) + "\n"
+            )
+
+            showvminfo_state = Path(tmp) / "showvminfo-state"
+            disk_path = state_dir / "cache" / "haos_generic-aarch64.vmdk"
+
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+if [ "${{1:-}}" = "showvminfo" ]; then
+  if [ ! -f "{showvminfo_state}" ]; then
+    : > "{showvminfo_state}"
+    exit 1
+  fi
+  cat <<'EOF'
+platformArchitecture="ARM"
+"SATA-0-0"="{disk_path}"
+VMState="poweroff"
+EOF
+  exit 0
+fi
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertIn("VBoxManage createvm --name smarthub-vm --platform-architecture arm --ostype Oracle_arm64 --register", log_text)
+            self.assertIn("VBoxManage startvm smarthub-vm --type headless", log_text)
+            self.assertNotIn("VBoxManage unregistervm", log_text)
+
+    def test_macos_host_path_requires_manual_recreate_for_existing_vm_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env, _, _ = self.prepare_env(tmp)
+            env["SMARTHUB_TEST_UNAME"] = "Darwin"
+            env["SMARTHUB_TEST_ARCH"] = "arm64"
+            env["SMARTHUB_VM_DRY_RUN"] = "1"
+            env["SMARTHUB_VM_BRIDGE_ADAPTER"] = "en0"
+            env["STUB_LOG"] = str(Path(tmp) / "stub.log")
+            self.constrain_path_to_stubs(env)
+
+            state_dir = Path(env["HOME"]) / ".smarthub-vm"
+            cache_dir = state_dir / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            disk_path = cache_dir / "haos_generic-aarch64.vmdk"
+            disk_path.write_text("")
+            (state_dir / "bootstrap-state.json").write_text(
+                json.dumps({"stage": "vm-created", "vm_name": "smarthub-vm"}) + "\n"
+            )
+
+            self.write_stub_script(
+                env,
+                "VBoxManage",
+                f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'VBoxManage %s\\n' "$*" >> "$STUB_LOG"
+if [ "${{1:-}}" = "showvminfo" ]; then
+  cat <<'EOF'
+platformArchitecture="x86"
+"SATA-0-0"="{disk_path}"
+VMState="poweroff"
+EOF
+  exit 0
+fi
+exit 0
+""",
+            )
+
+            proc = self.run_install(env)
+
+            self.assertNotEqual(proc.returncode, 0)
+            combined = (proc.stdout + proc.stderr).lower()
+            self.assertIn("does not match the expected smarthub configuration", combined)
+            self.assertIn("delete ~/.smarthub-vm", combined)
+            log_text = Path(env["STUB_LOG"]).read_text()
+            self.assertNotIn("VBoxManage unregistervm", log_text)
+            self.assertNotIn("VBoxManage createvm", log_text)
+
     def test_install_seeds_token_and_prints_password_once_on_fresh_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env, target, _ = self.prepare_env(tmp)

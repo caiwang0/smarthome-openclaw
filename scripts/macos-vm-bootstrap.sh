@@ -232,6 +232,31 @@ smarthub_vm_disk_path() {
   printf '%s/%s\n' "$(smarthub_vm_cache_dir)" "${archive_name%.zip}"
 }
 
+smarthub_vm_normalize_virtualbox_platform_arch() {
+  local normalized
+  normalized="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+  case "$normalized" in
+    arm|aarch64)
+      printf 'arm\n'
+      ;;
+    x86|amd64|x86_64)
+      printf 'x86\n'
+      ;;
+    *)
+      printf '%s\n' "$normalized"
+      ;;
+  esac
+}
+
+smarthub_vm_fail_manual_recreate_required() {
+  local vm_name reason
+  vm_name="$1"
+  reason="$2"
+  fail_install \
+    "Existing VirtualBox VM '$vm_name' does not match the expected SmartHub configuration: $reason" \
+    "Stop or remove '$vm_name', delete ~/.smarthub-vm, and rerun SmartHub."
+}
+
 smarthub_vm_prepare_disk_image() {
   local archive_path archive_url disk_path
   archive_path="$(smarthub_vm_disk_archive_path)"
@@ -354,25 +379,32 @@ PY
 }
 
 smarthub_vm_configure_virtualbox_vm() {
-  local vm_name bridge_adapter disk_path current_stage existing_machine_info existing_platform_arch attached_disk_path
+  local vm_name bridge_adapter disk_path current_stage existing_machine_info existing_platform_arch expected_platform_arch attached_disk_path
   vm_name="$(smarthub_vm_name)"
   bridge_adapter="$(smarthub_vm_bridged_adapter)"
   disk_path="$(smarthub_vm_disk_path)"
   current_stage="$(smarthub_vm_read_stage)"
 
   if smarthub_vm_stage_reached "$current_stage" "vm-created"; then
-    existing_machine_info="$(VBoxManage showvminfo "$vm_name" --machinereadable 2>/dev/null || true)"
-    existing_platform_arch="$(
-      printf '%s\n' "$existing_machine_info" | awk -F= '/^platformArchitecture=/{gsub(/"/, "", $2); print $2; exit}'
-    )"
-    attached_disk_path="$(
-      printf '%s\n' "$existing_machine_info" | awk -F= '/^"SATA-0-0"=/{gsub(/"/, "", $2); print $2; exit}'
-    )"
-    if [ -n "$existing_platform_arch" ] && [ "$existing_platform_arch" != "$(smarthub_vm_virtualbox_platform_arch)" ]; then
-      VBoxManage unregistervm "$vm_name" --delete
-      current_stage=""
-    elif [ -n "$attached_disk_path" ] && [ "$attached_disk_path" != "$disk_path" ]; then
-      VBoxManage unregistervm "$vm_name" --delete
+    if existing_machine_info="$(VBoxManage showvminfo "$vm_name" --machinereadable 2>/dev/null)"; then
+      existing_platform_arch="$(
+        printf '%s\n' "$existing_machine_info" | awk -F= '/^platformArchitecture=/{gsub(/"/, "", $2); print $2; exit}'
+      )"
+      existing_platform_arch="$(smarthub_vm_normalize_virtualbox_platform_arch "$existing_platform_arch")"
+      expected_platform_arch="$(smarthub_vm_virtualbox_platform_arch)"
+      attached_disk_path="$(
+        printf '%s\n' "$existing_machine_info" | awk -F= '/^"SATA-0-0"=/{gsub(/"/, "", $2); print $2; exit}'
+      )"
+      if [ -n "$existing_platform_arch" ] && [ "$existing_platform_arch" != "$expected_platform_arch" ]; then
+        smarthub_vm_fail_manual_recreate_required \
+          "$vm_name" \
+          "expected platform architecture $expected_platform_arch but found $existing_platform_arch."
+      elif [ -n "$attached_disk_path" ] && [ "$attached_disk_path" != "$disk_path" ]; then
+        smarthub_vm_fail_manual_recreate_required \
+          "$vm_name" \
+          "expected disk $disk_path but found $attached_disk_path."
+      fi
+    else
       current_stage=""
     fi
   fi
