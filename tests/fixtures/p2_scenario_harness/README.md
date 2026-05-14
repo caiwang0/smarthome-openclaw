@@ -25,8 +25,11 @@ defaults.
     }
   ],
   "expect": {
-    "decision": "deny",
-    "reason_contains": "explicit confirmation"
+    "denied_start": "deny",
+    "confirmed_start": "allow",
+    "reason_contains": "explicit user confirmation",
+    "denied_transcript": "please continue",
+    "confirmed_transcript": "yes"
   }
 }
 ```
@@ -34,3 +37,8 @@ defaults.
 The same shape works for positive and negative paths. A confirmed path uses a
 transcript such as `yes`; a denied path uses a transcript such as `please
 continue`.
+
+For multi-step scenarios, prefer expectation keys that mirror the actual tool
+run boundaries. For example, `confirmation-boundary` records `denied_start`,
+`confirmed_start`, `denied_transcript`, and `confirmed_transcript` so the
+behavior test can assert the real wrapper outcomes directly from the fixture.

@@ -48,7 +48,7 @@ class ApprovalGateTests(unittest.TestCase):
             transcript_path.unlink(missing_ok=True)
         return result
 
-    def test_new_config_flow_start_requires_confirmation(self) -> None:
+    def test_wrapper_emits_structured_deny_decision(self) -> None:
         result = self._run_gate(
             {
                 "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
@@ -60,8 +60,9 @@ class ApprovalGateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         decision = json.loads(result.stdout)
         self.assertEqual(decision["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("Reply yes to confirm or no to cancel.", decision["hookSpecificOutput"]["permissionDecisionReason"])
 
-    def test_confirmed_new_config_flow_start_is_allowed(self) -> None:
+    def test_wrapper_allows_confirmed_call_silently(self) -> None:
         result = self._run_gate(
             {
                 "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
@@ -73,7 +74,7 @@ class ApprovalGateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
 
-    def test_follow_up_config_flow_step_is_allowed(self) -> None:
+    def test_wrapper_allows_follow_up_step_silently(self) -> None:
         result = self._run_gate(
             {
                 "tool_name": "mcp__ha-mcp__ha_config_entries_flow",
@@ -85,7 +86,19 @@ class ApprovalGateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
 
-    def test_device_mutation_still_requires_confirmation(self) -> None:
+    def test_wrapper_allows_non_gated_tool_silently(self) -> None:
+        result = self._run_gate(
+            {
+                "tool_name": "mcp__ha-mcp__ha_config_entries_get",
+                "tool_input": {},
+            },
+            transcript_text="please continue",
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
+    def test_wrapper_denies_device_mutation_without_confirmation(self) -> None:
         result = self._run_gate(
             {
                 "tool_name": "mcp__ha-mcp__ha_update_device",
@@ -97,18 +110,7 @@ class ApprovalGateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         decision = json.loads(result.stdout)
         self.assertEqual(decision["hookSpecificOutput"]["permissionDecision"], "deny")
-
-    def test_passive_config_entries_get_is_allowed(self) -> None:
-        result = self._run_gate(
-            {
-                "tool_name": "mcp__ha-mcp__ha_config_entries_get",
-                "tool_input": {},
-            },
-            transcript_text="please continue",
-        )
-
-        self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout, "")
+        self.assertIn("ha_update_device", decision["hookSpecificOutput"]["permissionDecisionReason"])
 
     def test_malformed_input_fails_open(self) -> None:
         result = subprocess.run(

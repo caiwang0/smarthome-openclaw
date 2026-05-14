@@ -64,6 +64,20 @@ def run_gate(tool_name: str, tool_input: dict, transcript: str) -> subprocess.Co
 
 
 class P2ScenarioHarnessTests(unittest.TestCase):
+    def assert_gate_allows(self, run: dict) -> None:
+        result = run_gate(run["tool_name"], run["tool_input"], run["transcript"])
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
+    def assert_gate_denies(self, run: dict, reason_contains: str) -> None:
+        result = run_gate(run["tool_name"], run["tool_input"], run["transcript"])
+
+        self.assertEqual(result.returncode, 0)
+        decision = json.loads(result.stdout)
+        self.assertEqual(decision["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn(reason_contains, decision["hookSpecificOutput"]["permissionDecisionReason"])
+
     def test_discovers_named_fixtures(self) -> None:
         names = sorted(path.name for path in FIXTURE_DIR.glob("*.json"))
 
@@ -96,8 +110,10 @@ class P2ScenarioHarnessTests(unittest.TestCase):
         self.assertIn("docs", readme)
         self.assertIn("tool_runs", readme)
         self.assertIn("expect", readme)
-        self.assertIn("confirmed", readme)
-        self.assertIn("denied", readme)
+        self.assertIn("denied_start", readme)
+        self.assertIn("confirmed_start", readme)
+        self.assertIn("denied_transcript", readme)
+        self.assertIn("confirmed_transcript", readme)
 
     def test_discovery_then_confirmation_then_mutation(self) -> None:
         scenario = load_scenario("discovery-routing")
@@ -116,31 +132,25 @@ class P2ScenarioHarnessTests(unittest.TestCase):
 
         discovery_run, denied_run, confirmed_run = scenario["tool_runs"]
 
-        discovery_result = run_gate(
-            discovery_run["tool_name"],
-            discovery_run["tool_input"],
-            discovery_run["transcript"],
-        )
-        self.assertEqual(discovery_result.returncode, 0)
-        self.assertEqual(discovery_result.stdout, "")
+        self.assert_gate_allows(discovery_run)
+        self.assert_gate_denies(denied_run, "explicit user confirmation")
+        self.assert_gate_allows(confirmed_run)
 
-        denied_result = run_gate(
-            denied_run["tool_name"],
-            denied_run["tool_input"],
-            denied_run["transcript"],
-        )
-        self.assertEqual(denied_result.returncode, 0)
-        denied_decision = json.loads(denied_result.stdout)
-        self.assertEqual(denied_decision["hookSpecificOutput"]["permissionDecision"], "deny")
-        self.assertIn("explicit user confirmation", denied_decision["hookSpecificOutput"]["permissionDecisionReason"])
+    def test_confirmation_boundary_executes_fixture_behavior(self) -> None:
+        scenario = load_scenario("confirmation-boundary")
+        guide_doc = (REPO_ROOT / scenario["docs"][0]).read_text(encoding="utf-8")
 
-        confirmed_result = run_gate(
-            confirmed_run["tool_name"],
-            confirmed_run["tool_input"],
-            confirmed_run["transcript"],
-        )
-        self.assertEqual(confirmed_result.returncode, 0)
-        self.assertEqual(confirmed_result.stdout, "")
+        self.assertEqual(scenario["name"], "confirmation-boundary")
+        self.assertIn("Start the flow only after explicit user confirmation", guide_doc)
+        self.assertEqual(scenario["expect"]["denied_start"], "deny")
+        self.assertEqual(scenario["expect"]["confirmed_start"], "allow")
+        self.assertEqual(scenario["expect"]["denied_transcript"], scenario["tool_runs"][0]["transcript"])
+        self.assertEqual(scenario["expect"]["confirmed_transcript"], scenario["tool_runs"][1]["transcript"])
+
+        denied_run, confirmed_run = scenario["tool_runs"]
+        self.assertNotIn("flow_id", confirmed_run["tool_input"])
+        self.assert_gate_denies(denied_run, scenario["expect"]["reason_contains"])
+        self.assert_gate_allows(confirmed_run)
 
     def test_automation_step4_loads_pack_only_when_drafting(self) -> None:
         scenario = load_scenario("automation-step4")
@@ -150,6 +160,10 @@ class P2ScenarioHarnessTests(unittest.TestCase):
 
         self.assertEqual(scenario["name"], "automation-step4")
         self.assertEqual(len(scenario["tool_runs"]), 2)
+        self.assertEqual(scenario["expect"]["general_request"], "no_pack_load")
+        self.assertEqual(scenario["expect"]["drafting_boundary"], "load_pack")
+        self.assertTrue(scenario["expect"]["advisory"])
+        self.assertEqual(scenario["expect"]["authority"], "CLAUDE.md")
         self.assertIn("general automation request", scenario["tool_runs"][0]["transcript"].lower())
         self.assertIn("draft", scenario["tool_runs"][1]["transcript"].lower())
         self.assertIn("Step 4", guide_doc)
