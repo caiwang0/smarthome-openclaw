@@ -1,0 +1,112 @@
+apiVersion: shifu.edgenesis.io/v1alpha1
+kind: EdgeDevice
+metadata:
+  name: ugreen-camera
+  namespace: devices
+spec:
+  sku: UGREEN-Camera-SN0001
+  connection: USB
+  address: /dev/video0
+  protocol: USB
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ugreen-camera-config
+  namespace: deviceshifu
+data:
+  driverProperties: |
+    driverSku: UGREEN-Camera-SN0001
+    capture_size: 1920x1080
+  instructions: |
+    instructions:
+      snapshot:
+        protocolPropertyList:
+          method: GET
+      healthz:
+        protocolPropertyList:
+          method: GET
+  telemetries: |
+    telemetries: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ugreen-camera
+  namespace: deviceshifu
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ugreen-camera
+  template:
+    metadata:
+      labels:
+        app: ugreen-camera
+    spec:
+      serviceAccountName: edgedevice-sa
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+        supplementalGroups: [44]
+      containers:
+        - name: deviceshifu
+          image: registry.test.shifu.dev/shifuagent/deviceshifu-shifudev-13ea4a6a-e09b-4888-b045-8db054c0ea14@sha256:6355a947bb18fe8aaf5fe1dd72cc698141080fa32b0141c9c5c9649bc56230c4
+          securityContext:
+            privileged: true
+          env:
+            - name: EDGEDEVICE_NAME
+              value: ugreen-camera
+            - name: EDGEDEVICE_NAMESPACE
+              value: devices
+            - name: SHIFU_API_GROUP
+              value: shifu.edgenesis.io
+            - name: SHIFU_API_VERSION
+              value: v1alpha1
+            - name: SHIFU_API_PLURAL
+              value: edgedevices
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            timeoutSeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: '2'
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/edgedevice/config
+              readOnly: true
+            - name: camera
+              mountPath: /dev/video0
+      volumes:
+        - name: config
+          configMap:
+            name: ugreen-camera-config
+        - name: camera
+          hostPath:
+            path: /dev/video0
+            type: CharDevice
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ugreen-camera
+  namespace: deviceshifu
+spec:
+  selector:
+    app: ugreen-camera
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
