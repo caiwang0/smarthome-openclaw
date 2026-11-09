@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: solar-farm-gitops-check
+  namespace: devices
+  labels:
+    app.kubernetes.io/name: solar-farm-gitops-check
+data:
+  message: "Fleet synchronized this file through ShifuManager"
+  phase: initial
